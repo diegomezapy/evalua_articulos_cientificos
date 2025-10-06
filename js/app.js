@@ -1,5 +1,5 @@
 // Configuración de PDF.js
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'js/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
 
 // Clase principal del analizador
 class ScientificArticleAnalyzer {
