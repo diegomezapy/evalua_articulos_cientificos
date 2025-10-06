@@ -1,9 +1,78 @@
-scientific-article-evaluator/
-├── index.html
-├── css/
-│   └── style.css
-├── js/
-│   ├── app.js
-│   ├── pdf.worker.min.js (PDF.js worker)
-│   └── xlsx.full.min.js (SheetJS)
-└── README.md
+body {
+    background-color: #f8f9fa;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.container {
+    max-width: 1200px;
+}
+
+.card {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border: none;
+    margin-bottom: 20px;
+}
+
+.card-header {
+    background-color: #f1f8ff;
+    border-bottom: 1px solid #c8e1ff;
+}
+
+.btn-primary {
+    background-color: #0366d6;
+    border-color: #0366d6;
+}
+
+.btn-primary:hover {
+    background-color: #0256cc;
+    border-color: #0256cc;
+}
+
+.table th {
+    background-color: #f6f8fa;
+    border-top: none;
+}
+
+.score-cell {
+    font-weight: bold;
+}
+
+.score-high {
+    color: #28a745;
+}
+
+.score-medium {
+    color: #ffc107;
+}
+
+.score-low {
+    color: #dc3545;
+}
+
+.verdict-approved {
+    background-color: #d4edda;
+}
+
+.verdict-review {
+    background-color: #fff3cd;
+}
+
+.verdict-reject {
+    background-color: #f8d7da;
+}
+
+.detail-section {
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.detail-section:last-child {
+    border-bottom: none;
+}
+
+.detail-title {
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #0366d6;
+}
