@@ -4,87 +4,1097 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Evaluador de Calidad de Artículos Científicos</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="css/style.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #e74c3c;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --light-color: #ecf0f1;
+            --dark-color: #2c3e50;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        
+        .navbar {
+            background-color: var(--primary-color);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border: none;
+            margin-bottom: 20px;
+            transition: transform 0.3s;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .card-header {
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 10px 10px 0 0 !important;
+            font-weight: 600;
+        }
+        
+        .btn-primary {
+            background-color: var(--secondary-color);
+            border-color: var(--secondary-color);
+        }
+        
+        .btn-primary:hover {
+            background-color: #2980b9;
+            border-color: #2980b9;
+        }
+        
+        .btn-success {
+            background-color: var(--success-color);
+            border-color: var(--success-color);
+        }
+        
+        .score-display {
+            font-size: 2.5rem;
+            font-weight: bold;
+            text-align: center;
+            margin: 10px 0;
+        }
+        
+        .score-excelente { color: #27ae60; }
+        .score-muy-bueno { color: #2ecc71; }
+        .score-bueno { color: #f39c12; }
+        .score-aceptable { color: #e67e22; }
+        .score-mejoras { color: #e74c3c; }
+        
+        .progress {
+            height: 20px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+        }
+        
+        .dimension-card {
+            border-left: 4px solid var(--secondary-color);
+        }
+        
+        .star-rating {
+            color: #f1c40f;
+            font-size: 1.2rem;
+        }
+        
+        .file-upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            background-color: #f8f9fa;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .file-upload-area:hover {
+            border-color: var(--secondary-color);
+            background-color: #e8f4fc;
+        }
+        
+        .file-upload-area.dragover {
+            border-color: var(--secondary-color);
+            background-color: #d4edf9;
+        }
+        
+        .results-table th {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .quality-badge {
+            font-size: 0.85rem;
+            padding: 5px 10px;
+            border-radius: 20px;
+        }
+        
+        .dimension-score {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        
+        .analysis-progress {
+            display: none;
+        }
+        
+        .dimension-chart {
+            height: 300px;
+        }
+        
+        footer {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 20px 0;
+            margin-top: 40px;
+        }
+        
+        .comparison-chart {
+            height: 400px;
+        }
+    </style>
 </head>
 <body>
-    <div class="container mt-5">
-        <h1 class="text-center mb-4">Evaluador de Calidad de Artículos Científicos</h1>
-        
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5>Cargar Artículos PDF</h5>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-file-alt me-2"></i>
+                Evaluador Científico
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#"><i class="fas fa-home me-1"></i> Inicio</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#how-to-use"><i class="fas fa-question-circle me-1"></i> Cómo usar</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#about"><i class="fas fa-info-circle me-1"></i> Acerca de</a>
+                    </li>
+                </ul>
             </div>
-            <div class="card-body">
-                <div class="form-group">
-                    <label for="pdfFiles">Seleccionar archivos PDF:</label>
-                    <input type="file" id="pdfFiles" class="form-control-file" multiple accept=".pdf">
-                </div>
-                <button id="analyzeBtn" class="btn btn-primary mt-3">Analizar Artículos</button>
-                <div id="progressContainer" class="mt-3" style="display: none;">
-                    <div class="progress">
-                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="py-5 bg-light">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-6">
+                    <h1 class="display-4 fw-bold mb-4">Evaluador de Calidad de Artículos Científicos</h1>
+                    <p class="lead mb-4">Analiza automáticamente la calidad metodológica, transparencia y contribución científica de artículos académicos con nuestro sistema de evaluación multidimensional.</p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <span class="badge bg-primary p-2">5 Dimensiones de Evaluación</span>
+                        <span class="badge bg-success p-2">Análisis Automatizado</span>
+                        <span class="badge bg-warning p-2">Exportación a Excel</span>
                     </div>
-                    <p id="progressText" class="text-center mt-2">Procesando: <span id="currentFile"></span></p>
+                </div>
+                <div class="col-lg-6 text-center">
+                    <img src="https://cdn-icons-png.flaticon.com/512/3131/3131663.png" alt="Scientific Evaluation" class="img-fluid" style="max-height: 300px;">
                 </div>
             </div>
         </div>
-        
-        <div id="resultsContainer" style="display: none;">
-            <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5>Resultados del Análisis</h5>
-                    <button id="exportBtn" class="btn btn-success">Exportar Resultados (Excel)</button>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <canvas id="scoresChart"></canvas>
-                        </div>
-                        <div class="col-md-6">
-                            <canvas id="verdictChart"></canvas>
+    </section>
+
+    <!-- Main Content -->
+    <div class="container my-5">
+        <div class="row">
+            <!-- Upload Section -->
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-upload me-2"></i>Cargar Artículos</span>
+                        <div>
+                            <button class="btn btn-sm btn-light me-2" id="singleFileBtn">
+                                <i class="fas fa-file me-1"></i> Un Archivo
+                            </button>
+                            <button class="btn btn-sm btn-light" id="multipleFilesBtn">
+                                <i class="fas fa-folder me-1"></i> Múltiples Archivos
+                            </button>
                         </div>
                     </div>
-                    
-                    <div class="table-responsive mt-4">
-                        <table id="resultsTable" class="table table-striped table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Archivo</th>
-                                    <th>Puntuación Global</th>
-                                    <th>Veredicto</th>
-                                    <th>Metodología</th>
-                                    <th>Calidad Reporte</th>
-                                    <th>Transparencia</th>
-                                    <th>Rigor Científico</th>
-                                    <th>Relevancia</th>
-                                    <th>Presentación</th>
-                                    <th>Accesibilidad</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody id="resultsBody">
-                                <!-- Los resultados se insertarán aquí dinámicamente -->
-                            </tbody>
-                        </table>
+                    <div class="card-body">
+                        <!-- Single File Upload -->
+                        <div id="singleFileSection">
+                            <div class="file-upload-area" id="singleFileDropArea">
+                                <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                                <h5>Arrastra un archivo PDF aquí o haz clic para seleccionar</h5>
+                                <p class="text-muted">Formatos soportados: PDF</p>
+                                <input type="file" id="singleFileInput" accept=".pdf" class="d-none">
+                                <button class="btn btn-primary mt-2" onclick="document.getElementById('singleFileInput').click()">
+                                    <i class="fas fa-file-pdf me-1"></i> Seleccionar Archivo
+                                </button>
+                            </div>
+                            <div class="mt-3 text-center">
+                                <button class="btn btn-success" id="analyzeSingleBtn" disabled>
+                                    <i class="fas fa-chart-bar me-1"></i> Analizar Artículo
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Multiple Files Upload -->
+                        <div id="multipleFilesSection" style="display: none;">
+                            <div class="file-upload-area" id="multipleFilesDropArea">
+                                <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                                <h5>Arrastra múltiples archivos PDF aquí o haz clic para seleccionar</h5>
+                                <p class="text-muted">Formatos soportados: PDF (hasta 10 archivos)</p>
+                                <input type="file" id="multipleFileInput" accept=".pdf" multiple class="d-none">
+                                <button class="btn btn-primary mt-2" onclick="document.getElementById('multipleFileInput').click()">
+                                    <i class="fas fa-file-pdf me-1"></i> Seleccionar Archivos
+                                </button>
+                            </div>
+                            <div class="mt-3">
+                                <div id="fileList" class="mb-3"></div>
+                                <div class="text-center">
+                                    <button class="btn btn-success" id="analyzeMultipleBtn" disabled>
+                                        <i class="fas fa-chart-bar me-1"></i> Analizar Artículos
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Analysis Progress -->
+                        <div class="analysis-progress mt-4" id="analysisProgress">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Procesando archivos...</span>
+                                <span id="progressPercent">0%</span>
+                            </div>
+                            <div class="progress">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     id="progressBar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <div id="currentFile" class="text-center text-muted mt-2"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Section -->
+                <div class="card mt-4" id="resultsSection" style="display: none;">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-chart-line me-2"></i>Resultados del Análisis</span>
+                        <div>
+                            <button class="btn btn-sm btn-success me-2" id="exportExcelBtn">
+                                <i class="fas fa-file-excel me-1"></i> Exportar a Excel
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" id="clearResultsBtn">
+                                <i class="fas fa-trash me-1"></i> Limpiar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Single Result View -->
+                        <div id="singleResultView">
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <div class="card dimension-card">
+                                        <div class="card-body text-center">
+                                            <h5 class="card-title">Puntuación Total</h5>
+                                            <div id="totalScore" class="score-display score-excelente">8.7/10</div>
+                                            <div id="qualityCategory" class="mb-2">
+                                                <span class="badge bg-success quality-badge">Excelente</span>
+                                            </div>
+                                            <div id="starRating" class="star-rating">★★★★☆</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card dimension-card">
+                                        <div class="card-body">
+                                            <h5 class="card-title">Detalles del Artículo</h5>
+                                            <table class="table table-sm">
+                                                <tr>
+                                                    <td><strong>Archivo:</strong></td>
+                                                    <td id="detailFilename">articulo_ejemplo.pdf</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><strong>Título:</strong></td>
+                                                    <td id="detailTitle">Análisis de impacto ambiental...</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><strong>Autores:</strong></td>
+                                                    <td id="detailAuthors">Pérez, J.; González, M.</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><strong>Año:</strong></td>
+                                                    <td id="detailYear">2023</td>
+                                                </tr>
+                                                <tr>
+                                                    <td><strong>Palabras:</strong></td>
+                                                    <td id="detailWordCount">4,523</td>
+                                                </tr>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Dimension Scores -->
+                            <h5 class="mb-3">Puntuación por Dimensiones</h5>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Calidad Metodológica</h6>
+                                            <div class="dimension-score score-excelente" id="dimMethodological">8.5</div>
+                                            <div class="progress mt-2">
+                                                <div class="progress-bar bg-success" role="progressbar" style="width: 85%"></div>
+                                            </div>
+                                            <small class="text-muted">Diseño, muestra, análisis y medición</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Transparencia</h6>
+                                            <div class="dimension-score score-muy-bueno" id="dimTransparency">7.8</div>
+                                            <div class="progress mt-2">
+                                                <div class="progress-bar bg-info" role="progressbar" style="width: 78%"></div>
+                                            </div>
+                                            <small class="text-muted">Datos, software y consideraciones éticas</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Estructura</h6>
+                                            <div class="dimension-score score-bueno" id="dimStructure">6.9</div>
+                                            <div class="progress mt-2">
+                                                <div class="progress-bar bg-warning" role="progressbar" style="width: 69%"></div>
+                                            </div>
+                                            <small class="text-muted">Secciones, escritura y referencias</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Contribución</h6>
+                                            <div class="dimension-score score-excelente" id="dimContribution">8.9</div>
+                                            <div class="progress mt-2">
+                                                <div class="progress-bar bg-success" role="progressbar" style="width: 89%"></div>
+                                            </div>
+                                            <small class="text-muted">Novedad, impacto y claridad</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Calidad Técnica</h6>
+                                            <div class="dimension-score score-muy-bueno" id="dimTechnical">7.5</div>
+                                            <div class="progress mt-2">
+                                                <div class="progress-bar bg-info" role="progressbar" style="width: 75%"></div>
+                                            </div>
+                                            <small class="text-muted">Solidez, reproducibilidad y validación</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Radar Chart -->
+                            <div class="card mt-4">
+                                <div class="card-body">
+                                    <h5 class="card-title">Perfil de Calidad</h5>
+                                    <canvas id="radarChart" class="dimension-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Multiple Results View -->
+                        <div id="multipleResultsView" style="display: none;">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5>Comparación de Artículos</h5>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="toggleChartView">
+                                    <label class="form-check-label" for="toggleChartView">Vista de Gráfico</label>
+                                </div>
+                            </div>
+                            
+                            <!-- Results Table -->
+                            <div id="tableView">
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover results-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Archivo</th>
+                                                <th>Puntuación</th>
+                                                <th>Categoría</th>
+                                                <th>Metodológica</th>
+                                                <th>Transparencia</th>
+                                                <th>Estructura</th>
+                                                <th>Contribución</th>
+                                                <th>Técnica</th>
+                                                <th>Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="resultsTableBody">
+                                            <!-- Results will be populated here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            
+                            <!-- Comparison Chart -->
+                            <div id="chartView" style="display: none;">
+                                <canvas id="comparisonChart" class="comparison-chart"></canvas>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-            
-            <div class="card">
-                <div class="card-header">
-                    <h5>Detalles del Artículo Seleccionado</h5>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <!-- How to Use -->
+                <div class="card" id="how-to-use">
+                    <div class="card-header">
+                        <i class="fas fa-question-circle me-2"></i>Cómo Usar
+                    </div>
+                    <div class="card-body">
+                        <ol class="ps-3">
+                            <li class="mb-2">Selecciona "Un Archivo" o "Múltiples Archivos"</li>
+                            <li class="mb-2">Carga tu(s) archivo(s) PDF</li>
+                            <li class="mb-2">Haz clic en "Analizar Artículo(s)"</li>
+                            <li class="mb-2">Revisa los resultados y métricas</li>
+                            <li>Exporta a Excel si es necesario</li>
+                        </ol>
+                        <div class="alert alert-info mt-3">
+                            <small>
+                                <i class="fas fa-info-circle me-1"></i>
+                                El análisis puede tomar varios segundos por archivo dependiendo de su tamaño y complejidad.
+                            </small>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body" id="detailsContainer">
-                    <p>Seleccione un artículo de la tabla para ver detalles.</p>
+
+                <!-- About Dimensions -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-layer-group me-2"></i>Dimensiones de Evaluación
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <h6 class="text-primary">Calidad Metodológica (25%)</h6>
+                            <small class="text-muted">Rigor del diseño, calidad de muestra, análisis y medición</small>
+                        </div>
+                        <div class="mb-3">
+                            <h6 class="text-info">Transparencia (20%)</h6>
+                            <small class="text-muted">Disponibilidad de datos, software y consideraciones éticas</small>
+                        </div>
+                        <div class="mb-3">
+                            <h6 class="text-warning">Estructura (15%)</h6>
+                            <small class="text-muted">Completitud de secciones, calidad de escritura y referencias</small>
+                        </div>
+                        <div class="mb-3">
+                            <h6 class="text-success">Contribución (20%)</h6>
+                            <small class="text-muted">Novedad, potencial de impacto y claridad de contribuciones</small>
+                        </div>
+                        <div>
+                            <h6 class="text-secondary">Calidad Técnica (20%)</h6>
+                            <small class="text-muted">Solidez técnica, reproducibilidad y validación</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quality Scale -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-star me-2"></i>Escala de Calidad
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-success me-2">Excelente</span>
+                            <small>8.5 - 10.0 puntos</small>
+                        </div>
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-info me-2">Muy Bueno</span>
+                            <small>7.0 - 8.4 puntos</small>
+                        </div>
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-warning me-2">Bueno</span>
+                            <small>5.5 - 6.9 puntos</small>
+                        </div>
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-orange me-2">Aceptable</span>
+                            <small>4.0 - 5.4 puntos</small>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-danger me-2">Requiere Mejoras</span>
+                            <small>0.0 - 3.9 puntos</small>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="js/app.js"></script>
+    <!-- Footer -->
+    <footer id="about">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Evaluador de Calidad de Artículos Científicos</h5>
+                    <p>Sistema automatizado para evaluación multidimensional de publicaciones académicas basado en criterios de rigor metodológico, transparencia y contribución científica.</p>
+                </div>
+                <div class="col-md-3">
+                    <h5>Enlaces</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="#" class="text-light">Inicio</a></li>
+                        <li><a href="#how-to-use" class="text-light">Cómo usar</a></li>
+                        <li><a href="#about" class="text-light">Acerca de</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-3">
+                    <h5>Contacto</h5>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-envelope me-2"></i> contacto@evalcientifica.com</li>
+                        <li><i class="fas fa-globe me-2"></i> evalcientifica.com</li>
+                    </ul>
+                </div>
+            </div>
+            <hr class="my-4 bg-light">
+            <div class="text-center">
+                <p>&copy; 2023 Evaluador Científico. Todos los derechos reservados.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Configurar PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+        // Estado de la aplicación
+        const appState = {
+            currentMode: 'single', // 'single' o 'multiple'
+            files: [],
+            results: [],
+            currentAnalysis: null
+        };
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeEventListeners();
+            initializeCharts();
+        });
+
+        function initializeEventListeners() {
+            // Botones de modo
+            document.getElementById('singleFileBtn').addEventListener('click', () => switchMode('single'));
+            document.getElementById('multipleFilesBtn').addEventListener('click', () => switchMode('multiple'));
+            
+            // Inputs de archivo
+            document.getElementById('singleFileInput').addEventListener('change', handleFileSelect);
+            document.getElementById('multipleFileInput').addEventListener('change', handleFileSelect);
+            
+            // Botones de análisis
+            document.getElementById('analyzeSingleBtn').addEventListener('click', analyzeFiles);
+            document.getElementById('analyzeMultipleBtn').addEventListener('click', analyzeFiles);
+            
+            // Botones de resultados
+            document.getElementById('exportExcelBtn').addEventListener('click', exportToExcel);
+            document.getElementById('clearResultsBtn').addEventListener('click', clearResults);
+            
+            // Toggle de vista
+            document.getElementById('toggleChartView').addEventListener('change', toggleView);
+            
+            // Drag and drop
+            setupDragAndDrop('singleFileDropArea', 'singleFileInput');
+            setupDragAndDrop('multipleFilesDropArea', 'multipleFileInput');
+        }
+
+        function switchMode(mode) {
+            appState.currentMode = mode;
+            
+            if (mode === 'single') {
+                document.getElementById('singleFileSection').style.display = 'block';
+                document.getElementById('multipleFilesSection').style.display = 'none';
+                document.getElementById('singleFileBtn').classList.remove('btn-light');
+                document.getElementById('singleFileBtn').classList.add('btn-primary');
+                document.getElementById('multipleFilesBtn').classList.remove('btn-primary');
+                document.getElementById('multipleFilesBtn').classList.add('btn-light');
+            } else {
+                document.getElementById('singleFileSection').style.display = 'none';
+                document.getElementById('multipleFilesSection').style.display = 'block';
+                document.getElementById('multipleFilesBtn').classList.remove('btn-light');
+                document.getElementById('multipleFilesBtn').classList.add('btn-primary');
+                document.getElementById('singleFileBtn').classList.remove('btn-primary');
+                document.getElementById('singleFileBtn').classList.add('btn-light');
+            }
+            
+            // Limpiar resultados anteriores
+            clearResults();
+        }
+
+        function setupDragAndDrop(dropAreaId, inputId) {
+            const dropArea = document.getElementById(dropAreaId);
+            const fileInput = document.getElementById(inputId);
+            
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, unhighlight, false);
+            });
+            
+            function highlight() {
+                dropArea.classList.add('dragover');
+            }
+            
+            function unhighlight() {
+                dropArea.classList.remove('dragover');
+            }
+            
+            dropArea.addEventListener('drop', handleDrop, false);
+            
+            function handleDrop(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                fileInput.files = files;
+                handleFileSelect({ target: fileInput });
+            }
+        }
+
+        function handleFileSelect(event) {
+            const files = event.target.files;
+            if (!files.length) return;
+            
+            // Limpiar archivos anteriores
+            appState.files = [];
+            
+            // Validar y almacenar archivos
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (file.type === 'application/pdf') {
+                    appState.files.push(file);
+                }
+            }
+            
+            // Actualizar interfaz
+            if (appState.currentMode === 'single') {
+                const fileName = appState.files.length > 0 ? appState.files[0].name : 'Ningún archivo seleccionado';
+                document.querySelector('#singleFileDropArea h5').textContent = fileName;
+                document.getElementById('analyzeSingleBtn').disabled = appState.files.length === 0;
+            } else {
+                updateFileList();
+                document.getElementById('analyzeMultipleBtn').disabled = appState.files.length === 0;
+            }
+        }
+
+        function updateFileList() {
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = '';
+            
+            if (appState.files.length === 0) {
+                fileList.innerHTML = '<p class="text-muted text-center">No hay archivos seleccionados</p>';
+                return;
+            }
+            
+            const listGroup = document.createElement('div');
+            listGroup.className = 'list-group';
+            
+            appState.files.forEach((file, index) => {
+                const listItem = document.createElement('div');
+                listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                listItem.innerHTML = `
+                    <div>
+                        <i class="fas fa-file-pdf text-danger me-2"></i>
+                        ${file.name}
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(${index})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                listGroup.appendChild(listItem);
+            });
+            
+            fileList.appendChild(listGroup);
+        }
+
+        function removeFile(index) {
+            appState.files.splice(index, 1);
+            updateFileList();
+            document.getElementById('analyzeMultipleBtn').disabled = appState.files.length === 0;
+        }
+
+        async function analyzeFiles() {
+            if (appState.files.length === 0) return;
+            
+            // Mostrar progreso
+            const progressSection = document.getElementById('analysisProgress');
+            const progressBar = document.getElementById('progressBar');
+            const progressPercent = document.getElementById('progressPercent');
+            const currentFile = document.getElementById('currentFile');
+            
+            progressSection.style.display = 'block';
+            progressBar.style.width = '0%';
+            progressPercent.textContent = '0%';
+            
+            // Limpiar resultados anteriores
+            appState.results = [];
+            
+            // Procesar cada archivo
+            for (let i = 0; i < appState.files.length; i++) {
+                const file = appState.files[i];
+                currentFile.textContent = `Procesando: ${file.name}`;
+                
+                // Simular análisis (en una implementación real, aquí se procesaría el PDF)
+                const result = await simulateAnalysis(file);
+                appState.results.push(result);
+                
+                // Actualizar progreso
+                const progress = ((i + 1) / appState.files.length) * 100;
+                progressBar.style.width = `${progress}%`;
+                progressPercent.textContent = `${Math.round(progress)}%`;
+            }
+            
+            // Ocultar progreso
+            progressSection.style.display = 'none';
+            
+            // Mostrar resultados
+            displayResults();
+        }
+
+        async function simulateAnalysis(file) {
+            // Simular tiempo de procesamiento
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            
+            // Generar resultados simulados
+            const totalScore = (Math.random() * 4 + 6).toFixed(1); // Entre 6 y 10
+            const methodological = (Math.random() * 4 + 6).toFixed(1);
+            const transparency = (Math.random() * 4 + 6).toFixed(1);
+            const structure = (Math.random() * 4 + 6).toFixed(1);
+            const contribution = (Math.random() * 4 + 6).toFixed(1);
+            const technical = (Math.random() * 4 + 6).toFixed(1);
+            
+            return {
+                filename: file.name,
+                title: `Título del artículo: ${file.name.split('.')[0]}`,
+                authors: 'Autor 1, Autor 2, Autor 3',
+                year: '2023',
+                wordCount: Math.floor(Math.random() * 5000 + 2000),
+                scores: {
+                    total: parseFloat(totalScore),
+                    methodological: parseFloat(methodological),
+                    transparency: parseFloat(transparency),
+                    structure: parseFloat(structure),
+                    contribution: parseFloat(contribution),
+                    technical: parseFloat(technical)
+                }
+            };
+        }
+
+        function displayResults() {
+            const resultsSection = document.getElementById('resultsSection');
+            resultsSection.style.display = 'block';
+            
+            if (appState.currentMode === 'single' && appState.results.length > 0) {
+                displaySingleResult(appState.results[0]);
+            } else {
+                displayMultipleResults();
+            }
+        }
+
+        function displaySingleResult(result) {
+            document.getElementById('singleResultView').style.display = 'block';
+            document.getElementById('multipleResultsView').style.display = 'none';
+            
+            // Actualizar detalles
+            document.getElementById('detailFilename').textContent = result.filename;
+            document.getElementById('detailTitle').textContent = result.title;
+            document.getElementById('detailAuthors').textContent = result.authors;
+            document.getElementById('detailYear').textContent = result.year;
+            document.getElementById('detailWordCount').textContent = result.wordCount.toLocaleString();
+            
+            // Actualizar puntuaciones
+            updateScoreDisplay(result.scores.total, 'totalScore');
+            updateScoreDisplay(result.scores.methodological, 'dimMethodological');
+            updateScoreDisplay(result.scores.transparency, 'dimTransparency');
+            updateScoreDisplay(result.scores.structure, 'dimStructure');
+            updateScoreDisplay(result.scores.contribution, 'dimContribution');
+            updateScoreDisplay(result.scores.technical, 'dimTechnical');
+            
+            // Actualizar categoría y estrellas
+            updateQualityCategory(result.scores.total);
+            updateStarRating(result.scores.total);
+            
+            // Actualizar gráfico de radar
+            updateRadarChart(result);
+        }
+
+        function displayMultipleResults() {
+            document.getElementById('singleResultView').style.display = 'none';
+            document.getElementById('multipleResultsView').style.display = 'block';
+            
+            // Actualizar tabla
+            const tableBody = document.getElementById('resultsTableBody');
+            tableBody.innerHTML = '';
+            
+            appState.results.forEach(result => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${result.filename}</td>
+                    <td>
+                        <span class="${getScoreClass(result.scores.total)}">${result.scores.total}</span>
+                    </td>
+                    <td>${getQualityCategory(result.scores.total)}</td>
+                    <td>${result.scores.methodological}</td>
+                    <td>${result.scores.transparency}</td>
+                    <td>${result.scores.structure}</td>
+                    <td>${result.scores.contribution}</td>
+                    <td>${result.scores.technical}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-primary" onclick="viewSingleResult('${result.filename}')">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+            
+            // Actualizar gráfico de comparación
+            updateComparisonChart();
+        }
+
+        function viewSingleResult(filename) {
+            const result = appState.results.find(r => r.filename === filename);
+            if (result) {
+                switchMode('single');
+                displaySingleResult(result);
+                document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        function updateScoreDisplay(score, elementId) {
+            const element = document.getElementById(elementId);
+            element.textContent = score;
+            element.className = element.className.split(' ')[0] + ' ' + getScoreClass(score);
+        }
+
+        function getScoreClass(score) {
+            if (score >= 8.5) return 'score-excelente';
+            if (score >= 7.0) return 'score-muy-bueno';
+            if (score >= 5.5) return 'score-bueno';
+            if (score >= 4.0) return 'score-aceptable';
+            return 'score-mejoras';
+        }
+
+        function updateQualityCategory(score) {
+            const categoryElement = document.getElementById('qualityCategory');
+            const category = getQualityCategory(score);
+            let badgeClass = 'bg-secondary';
+            
+            if (score >= 8.5) badgeClass = 'bg-success';
+            else if (score >= 7.0) badgeClass = 'bg-info';
+            else if (score >= 5.5) badgeClass = 'bg-warning';
+            else if (score >= 4.0) badgeClass = 'bg-orange';
+            else badgeClass = 'bg-danger';
+            
+            categoryElement.innerHTML = `<span class="badge ${badgeClass} quality-badge">${category}</span>`;
+        }
+
+        function getQualityCategory(score) {
+            if (score >= 8.5) return 'Excelente';
+            if (score >= 7.0) return 'Muy Bueno';
+            if (score >= 5.5) return 'Bueno';
+            if (score >= 4.0) return 'Aceptable';
+            return 'Requiere Mejoras';
+        }
+
+        function updateStarRating(score) {
+            const starsElement = document.getElementById('starRating');
+            const fullStars = Math.floor(score / 2);
+            const emptyStars = 5 - fullStars;
+            
+            let stars = '';
+            for (let i = 0; i < fullStars; i++) {
+                stars += '★';
+            }
+            for (let i = 0; i < emptyStars; i++) {
+                stars += '☆';
+            }
+            
+            starsElement.textContent = stars;
+        }
+
+        function initializeCharts() {
+            // Inicializar gráficos vacíos
+            window.radarChart = new Chart(document.getElementById('radarChart'), {
+                type: 'radar',
+                data: {
+                    labels: ['Metodológica', 'Transparencia', 'Estructura', 'Contribución', 'Técnica'],
+                    datasets: [{
+                        label: 'Puntuación',
+                        data: [0, 0, 0, 0, 0],
+                        backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                        borderColor: 'rgba(52, 152, 219, 1)',
+                        pointBackgroundColor: 'rgba(52, 152, 219, 1)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgba(52, 152, 219, 1)'
+                    }]
+                },
+                options: {
+                    scales: {
+                        r: {
+                            angleLines: {
+                                display: true
+                            },
+                            suggestedMin: 0,
+                            suggestedMax: 10
+                        }
+                    }
+                }
+            });
+            
+            window.comparisonChart = new Chart(document.getElementById('comparisonChart'), {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Metodológica',
+                            data: [],
+                            backgroundColor: 'rgba(46, 204, 113, 0.7)'
+                        },
+                        {
+                            label: 'Transparencia',
+                            data: [],
+                            backgroundColor: 'rgba(52, 152, 219, 0.7)'
+                        },
+                        {
+                            label: 'Estructura',
+                            data: [],
+                            backgroundColor: 'rgba(243, 156, 18, 0.7)'
+                        },
+                        {
+                            label: 'Contribución',
+                            data: [],
+                            backgroundColor: 'rgba(155, 89, 182, 0.7)'
+                        },
+                        {
+                            label: 'Técnica',
+                            data: [],
+                            backgroundColor: 'rgba(149, 165, 166, 0.7)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            stacked: false,
+                        },
+                        y: {
+                            stacked: false,
+                            beginAtZero: true,
+                            max: 10
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateRadarChart(result) {
+            window.radarChart.data.datasets[0].data = [
+                result.scores.methodological,
+                result.scores.transparency,
+                result.scores.structure,
+                result.scores.contribution,
+                result.scores.technical
+            ];
+            window.radarChart.update();
+        }
+
+        function updateComparisonChart() {
+            const labels = appState.results.map(r => r.filename.substring(0, 15) + '...');
+            const methodological = appState.results.map(r => r.scores.methodological);
+            const transparency = appState.results.map(r => r.scores.transparency);
+            const structure = appState.results.map(r => r.scores.structure);
+            const contribution = appState.results.map(r => r.scores.contribution);
+            const technical = appState.results.map(r => r.scores.technical);
+            
+            window.comparisonChart.data.labels = labels;
+            window.comparisonChart.data.datasets[0].data = methodological;
+            window.comparisonChart.data.datasets[1].data = transparency;
+            window.comparisonChart.data.datasets[2].data = structure;
+            window.comparisonChart.data.datasets[3].data = contribution;
+            window.comparisonChart.data.datasets[4].data = technical;
+            window.comparisonChart.update();
+        }
+
+        function toggleView() {
+            const tableView = document.getElementById('tableView');
+            const chartView = document.getElementById('chartView');
+            const toggle = document.getElementById('toggleChartView');
+            
+            if (toggle.checked) {
+                tableView.style.display = 'none';
+                chartView.style.display = 'block';
+            } else {
+                tableView.style.display = 'block';
+                chartView.style.display = 'none';
+            }
+        }
+
+        function exportToExcel() {
+            if (appState.results.length === 0) return;
+            
+            // Preparar datos para Excel
+            const data = [];
+            
+            // Encabezados
+            data.push([
+                'Archivo', 'Título', 'Autores', 'Año', 'Palabras',
+                'Puntuación Total', 'Categoría',
+                'Metodológica', 'Transparencia', 'Estructura', 'Contribución', 'Técnica'
+            ]);
+            
+            // Datos
+            appState.results.forEach(result => {
+                data.push([
+                    result.filename,
+                    result.title,
+                    result.authors,
+                    result.year,
+                    result.wordCount,
+                    result.scores.total,
+                    getQualityCategory(result.scores.total),
+                    result.scores.methodological,
+                    result.scores.transparency,
+                    result.scores.structure,
+                    result.scores.contribution,
+                    result.scores.technical
+                ]);
+            });
+            
+            // Crear libro de trabajo
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Resultados');
+            
+            // Generar y descargar archivo
+            const date = new Date().toISOString().split('T')[0];
+            XLSX.writeFile(wb, `evaluacion_articulos_${date}.xlsx`);
+        }
+
+        function clearResults() {
+            appState.results = [];
+            document.getElementById('resultsSection').style.display = 'none';
+        }
+    </script>
 </body>
 </html>
