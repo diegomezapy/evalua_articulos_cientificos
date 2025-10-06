@@ -1,40 +1,39 @@
 # Evaluador de Calidad de Artículos Científicos
 
-Aplicación web para analizar y evaluar la calidad de artículos científicos en formato PDF directamente desde el navegador.
+Una aplicación web para evaluar automáticamente la calidad de artículos científicos mediante un sistema de scoring multidimensional.
 
 ## Características
 
-- Análisis multidimensional de la calidad de artículos científicos
-- Procesamiento local de archivos PDF (sin enviar datos a servidores)
-- Exportación de resultados a formato Excel
-- Visualización interactiva con gráficos
-- Interfaz intuitiva y responsiva
+- Evaluación basada en 5 dimensiones de calidad
+- Análisis individual o múltiple de archivos PDF
+- Visualización de resultados con gráficos interactivos
+- Exportación de resultados a Excel
+- Interfaz intuitiva y responsive
 
-## Dimensiones Evaluadas
+## Cómo usar
 
-1. **Metodología**: Solidez del diseño y ejecución de la investigación
-2. **Calidad del Reporte**: Claridad y estructura de la comunicación
-3. **Transparencia y Reproducibilidad**: Disponibilidad de datos y código
-4. **Rigor Científico**: Profundidad y honestidad intelectual
-5. **Relevancia y Originalidad**: Contribución neta del artículo
-6. **Presentación de Resultados**: Eficacia de la comunicación visual
-7. **Accesibilidad y Ética**: Aspectos éticos y acceso abierto
+1. Selecciona "Un Archivo" o "Múltiples Archivos"
+2. Carga tus archivos PDF
+3. Haz clic en "Analizar Artículo(s)"
+4. Revisa los resultados y métricas
+5. Exporta a Excel si es necesario
 
-## Tecnologías Utilizadas
+## Dimensiones de evaluación
 
-- [PDF.js](https://mozilla.github.io/pdf.js/) para extracción de texto de PDFs
-- [Chart.js](https://www.chartjs.org/) para visualización de gráficos
-- [SheetJS](https://sheetjs.com/) para exportación a Excel
-- [Bootstrap](https://getbootstrap.com/) para el diseño de la interfaz
+- **Calidad Metodológica (25%)**: Rigor del diseño, muestra, análisis y medición
+- **Transparencia (20%)**: Datos, software y consideraciones éticas
+- **Estructura (15%)**: Secciones, escritura y referencias
+- **Contribución (20%)**: Novedad, impacto y claridad
+- **Calidad Técnica (20%)**: Solidez, reproducibilidad y validación
 
-## Cómo Usar
+## Tecnologías utilizadas
 
-1. Ve a la página web de la aplicación
-2. Selecciona uno o más archivos PDF
-3. Haz clic en "Analizar Artículos"
-4. Espera a que se complete el procesamiento
-5. Revisa los resultados y exporta si lo deseas
+- HTML5, CSS3, JavaScript
+- Bootstrap 5
+- Chart.js
+- PDF.js
+- SheetJS (xlsx)
 
 ## Licencia
 
-MIT
+MIT License
