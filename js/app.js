@@ -43,13 +43,15 @@ class ScientificArticleAnalyzer {
             document.getElementById('progressBar').style.width = `${progress}%`;
 
             try {
+                console.log(`\n=== Procesando archivo: ${file.name} ===`);
                 const result = await this.analyzePDF(file);
                 this.results.push(result);
+                console.log(`✓ Análisis completado para: ${file.name}`);
             } catch (error) {
-                console.error(`Error al procesar ${file.name}:`, error);
+                console.error(`✗ Error al procesar ${file.name}:`, error);
                 this.results.push({
                     filename: file.name,
-                    error: 'No se pudo procesar el archivo'
+                    error: `No se pudo procesar el archivo: ${error.message}`
                 });
             }
         }
@@ -58,28 +60,92 @@ class ScientificArticleAnalyzer {
     }
 
     async analyzePDF(file) {
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        const numPages = pdf.numPages;
-        let fullText = '';
+        try {
+            console.log(`1. Leyendo archivo: ${file.name} (${file.size} bytes)`);
+            
+            // Verificar si el archivo es un PDF
+            if (file.type !== 'application/pdf') {
+                throw new Error('El archivo no es un PDF válido');
+            }
 
-        for (let i = 1; i <= numPages; i++) {
-            const page = await pdf.getPage(i);
-            const textContent = await page.getTextContent();
-            const pageText = textContent.items.map(item => item.str).join(' ');
-            fullText += pageText + ' ';
+            const arrayBuffer = await file.arrayBuffer();
+            console.log(`2. Buffer leído: ${arrayBuffer.byteLength} bytes`);
+            
+            if (arrayBuffer.byteLength === 0) {
+                throw new Error('El archivo está vacío');
+            }
+
+            // Cargar el PDF con PDF.js
+            const loadingTask = pdfjsLib.getDocument({
+                data: arrayBuffer,
+                cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/cmaps/',
+                cMapPacked: true
+            });
+            
+            console.log('3. Iniciando carga del PDF...');
+            const pdf = await loadingTask.promise;
+            console.log(`4. PDF cargado: ${pdf.numPages} páginas`);
+            
+            if (pdf.numPages === 0) {
+                throw new Error('El PDF no tiene páginas');
+            }
+
+            let fullText = '';
+            let pagesProcessed = 0;
+
+            // Extraer texto de cada página
+            for (let i = 1; i <= pdf.numPages; i++) {
+                try {
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent({
+                        normalizeWhitespace: true,
+                        disableCombineTextItems: false
+                    });
+                    
+                    const pageText = textContent.items
+                        .map(item => item.str)
+                        .join(' ')
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                    
+                    fullText += pageText + ' ';
+                    pagesProcessed++;
+                    
+                    if (i % 5 === 0 || i === pdf.numPages) {
+                        console.log(`   Página ${i}/${pdf.numPages} procesada (${pageText.length} caracteres)`);
+                    }
+                } catch (pageError) {
+                    console.warn(`   ⚠ Error al procesar página ${i}:`, pageError);
+                    // Continuar con la siguiente página
+                }
+            }
+
+            console.log(`5. Texto completo extraído: ${fullText.length} caracteres`);
+            console.log(`   Páginas procesadas: ${pagesProcessed}/${pdf.numPages}`);
+            
+            // Verificar si se extrajo suficiente texto
+            if (fullText.length < 50) {
+                throw new Error(`No se pudo extraer suficiente texto (${fullText.length} caracteres)`);
+            }
+
+            // Realizar análisis del texto extraído
+            const analysis = this.performTextAnalysis(fullText);
+            
+            return {
+                filename: file.name,
+                totalPages: pdf.numPages,
+                textLength: fullText.length,
+                ...analysis
+            };
+        } catch (error) {
+            console.error('Error en analyzePDF:', error);
+            throw error;
         }
-
-        // Realizar análisis del texto extraído
-        const analysis = this.performTextAnalysis(fullText);
-        
-        return {
-            filename: file.name,
-            ...analysis
-        };
     }
 
     performTextAnalysis(text) {
+        console.log('6. Iniciando análisis de texto');
+        
         // Implementación simplificada del análisis
         const analysis = {
             methodology: this.analyzeMethodology(text),
@@ -95,6 +161,13 @@ class ScientificArticleAnalyzer {
         const globalScore = this.calculateGlobalScore(analysis);
         const verdict = this.determineVerdict(globalScore);
 
+        console.log('7. Análisis completado:', { 
+            globalScore, 
+            verdict,
+            methodology: analysis.methodology,
+            reportingQuality: analysis.reportingQuality
+        });
+        
         return {
             ...analysis,
             globalScore,
@@ -107,6 +180,8 @@ class ScientificArticleAnalyzer {
         const sampleSize = text.match(/\bn\s*=\s*(\d+)/i);
         const hasVariables = /\b(variables?|predictors?|outcomes?)\b/i.test(text);
         const hasStats = /\b(statistics?|regression|anova|t-test|p-value)\b/i.test(text);
+        
+        console.log(`   Metodología: hasSample=${hasSample}, sampleSize=${sampleSize?.[1]}, hasVariables=${hasVariables}, hasStats=${hasStats}`);
         
         return {
             hasSample,
@@ -121,6 +196,8 @@ class ScientificArticleAnalyzer {
         const hasAbstract = /\b(abstract|resumen)\b/i.test(text);
         const hasObjectives = /\b(objectives?|aims?|goals?)\b/i.test(text);
         const hasConclusions = /\b(conclusions?|conclusion)\b/i.test(text);
+        
+        console.log(`   Reporte: IMRaD=${hasIMRaD}, Abstract=${hasAbstract}, Objectives=${hasObjectives}, Conclusions=${hasConclusions}`);
         
         return {
             hasIMRaD,
@@ -315,16 +392,24 @@ class ScientificArticleAnalyzer {
     }
 
     createCharts() {
+        // Filtrar resultados con errores
+        const validResults = this.results.filter(r => !r.error);
+        
+        if (validResults.length === 0) {
+            console.log('No hay resultados válidos para mostrar en los gráficos');
+            return;
+        }
+
         // Gráfico de puntuaciones
         const scoresCtx = document.getElementById('scoresChart').getContext('2d');
         new Chart(scoresCtx, {
             type: 'bar',
             data: {
-                labels: this.results.map(r => r.filename),
+                labels: validResults.map(r => r.filename),
                 datasets: [{
                     label: 'Puntuación Global',
-                    data: this.results.map(r => r.globalScore),
-                    backgroundColor: this.results.map(r => {
+                    data: validResults.map(r => r.globalScore),
+                    backgroundColor: validResults.map(r => {
                         if (r.verdict === 'Aprobado') return 'rgba(40, 167, 69, 0.7)';
                         if (r.verdict === 'Revisión Requerida') return 'rgba(255, 193, 7, 0.7)';
                         return 'rgba(220, 53, 69, 0.7)';
@@ -352,7 +437,7 @@ class ScientificArticleAnalyzer {
         });
 
         // Gráfico de veredictos
-        const verdictCounts = this.results.reduce((acc, result) => {
+        const verdictCounts = validResults.reduce((acc, result) => {
             acc[result.verdict] = (acc[result.verdict] || 0) + 1;
             return acc;
         }, {});
@@ -390,8 +475,14 @@ class ScientificArticleAnalyzer {
         const result = this.results[index];
         const detailsContainer = document.getElementById('detailsContainer');
         
+        if (result.error) {
+            detailsContainer.innerHTML = `<p class="text-danger">${result.error}</p>`;
+            return;
+        }
+        
         let detailsHTML = `
             <h6>${result.filename}</h6>
+            <p><strong>Información del PDF:</strong> ${result.totalPages} páginas, ${result.textLength} caracteres extraídos</p>
             <div class="detail-section">
                 <div class="detail-title">Metodología</div>
                 <ul>
@@ -458,15 +549,15 @@ class ScientificArticleAnalyzer {
         // Preparar datos para exportación
         const exportData = this.results.map(result => ({
             'Archivo': result.filename,
-            'Puntuación Global': result.globalScore,
-            'Veredicto': result.verdict,
-            'Metodología': this.calculateDimensionScore(result.methodology).replace(/<[^>]*>/g, ''),
-            'Calidad Reporte': this.calculateDimensionScore(result.reportingQuality).replace(/<[^>]*>/g, ''),
-            'Transparencia': this.calculateDimensionScore(result.transparency).replace(/<[^>]*>/g, ''),
-            'Rigor Científico': this.calculateDimensionScore(result.rigor).replace(/<[^>]*>/g, ''),
-            'Relevancia': this.calculateDimensionScore(result.relevance).replace(/<[^>]*>/g, ''),
-            'Presentación': this.calculateDimensionScore(result.presentation).replace(/<[^>]*>/g, ''),
-            'Accesibilidad': this.calculateDimensionScore(result.accessibility).replace(/<[^>]*>/g, '')
+            'Puntuación Global': result.globalScore || 'Error',
+            'Veredicto': result.verdict || 'Error',
+            'Metodología': result.globalScore ? this.calculateDimensionScore(result.methodology).replace(/<[^>]*>/g, '') : 'Error',
+            'Calidad Reporte': result.globalScore ? this.calculateDimensionScore(result.reportingQuality).replace(/<[^>]*>/g, '') : 'Error',
+            'Transparencia': result.globalScore ? this.calculateDimensionScore(result.transparency).replace(/<[^>]*>/g, '') : 'Error',
+            'Rigor Científico': result.globalScore ? this.calculateDimensionScore(result.rigor).replace(/<[^>]*>/g, '') : 'Error',
+            'Relevancia': result.globalScore ? this.calculateDimensionScore(result.relevance).replace(/<[^>]*>/g, '') : 'Error',
+            'Presentación': result.globalScore ? this.calculateDimensionScore(result.presentation).replace(/<[^>]*>/g, '') : 'Error',
+            'Accesibilidad': result.globalScore ? this.calculateDimensionScore(result.accessibility).replace(/<[^>]*>/g, '') : 'Error'
         }));
 
         // Crear libro de Excel
@@ -481,5 +572,6 @@ class ScientificArticleAnalyzer {
 
 // Inicializar la aplicación cuando el DOM esté cargado
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM cargado, inicializando aplicación');
     window.analyzer = new ScientificArticleAnalyzer();
 });
