@@ -1,78 +1,120 @@
-body {
-    background-color: #f8f9fa;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+/* style.css - Mejoras para la interfaz clásica */
+.badge {
+    font-size: 0.85em;
+    padding: 0.4em 0.6em;
 }
 
-.container {
-    max-width: 1200px;
+.badge-success {
+    background-color: #28a745;
+}
+
+.badge-warning {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.badge-danger {
+    background-color: #dc3545;
+}
+
+.badge-info {
+    background-color: #17a2b8;
 }
 
 .card {
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    border: none;
-    margin-bottom: 20px;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid rgba(0, 0, 0, 0.125);
 }
 
 .card-header {
-    background-color: #f1f8ff;
-    border-bottom: 1px solid #c8e1ff;
-}
-
-.btn-primary {
-    background-color: #0366d6;
-    border-color: #0366d6;
-}
-
-.btn-primary:hover {
-    background-color: #0256cc;
-    border-color: #0256cc;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
 }
 
 .table th {
-    background-color: #f6f8fa;
+    background-color: #f8f9fa;
     border-top: none;
 }
 
-.score-cell {
-    font-weight: bold;
+.progress {
+    height: 20px;
 }
 
-.score-high {
-    color: #28a745;
+.progress-bar {
+    background-color: #007bff;
 }
 
-.score-medium {
-    color: #ffc107;
+.btn {
+    border-radius: 0.25rem;
 }
 
-.score-low {
-    color: #dc3545;
+#detailsContainer {
+    max-height: 600px;
+    overflow-y: auto;
 }
 
-.verdict-approved {
-    background-color: #d4edda;
+#detailsContainer h6 {
+    color: #495057;
+    border-bottom: 2px solid #007bff;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
 }
 
-.verdict-review {
-    background-color: #fff3cd;
+#detailsContainer ul {
+    padding-left: 1.5rem;
 }
 
-.verdict-reject {
-    background-color: #f8d7da;
+#detailsContainer .list-unstyled li {
+    margin-bottom: 0.5rem;
 }
 
-.detail-section {
-    margin-bottom: 15px;
-    padding-bottom: 15px;
-    border-bottom: 1px solid #dee2e6;
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.875rem;
+    }
+    
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.775rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
 }
 
-.detail-section:last-child {
-    border-bottom: none;
+/* Animation for progress bar */
+.progress-bar-striped {
+    background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.15) 75%, transparent 75%, transparent);
+    background-size: 1rem 1rem;
 }
 
-.detail-title {
-    font-weight: bold;
-    margin-bottom: 5px;
-    color: #0366d6;
+.progress-bar-animated {
+    animation: progress-bar-stripes 1s linear infinite;
+}
+
+@keyframes progress-bar-stripes {
+    0% {
+        background-position: 1rem 0;
+    }
+    100% {
+        background-position: 0 0;
+    }
+}
+
+/* Chart container styling */
+canvas {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Hover effects */
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.075);
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
 }
