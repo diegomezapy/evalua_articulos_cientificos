@@ -1,11 +1,10 @@
-// ScientificArticleAnalyzer Pro (clasificación y evaluación multilingüe ES-EN-PT)
-// Requisitos en el HTML: inputs con ids pdfFiles, analyzeBtn, exportBtn; contenedores progressContainer, resultsContainer; elementos
-// progressBar, currentFile, resultsBody, detailsContainer; canvas con ids scoresChart, verdictChart, studyTypeChart. Chart.js, XLSX y PDF.js cargados.
+// scientific-article-analyzer.js
+// Código para GitHub Pages - Versión completa
 
 /* ==========================
  *  Configuración de PDF.js
  * ========================== */
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
 
 /* ============================================
  *  Utilidades de texto y patrones multilingües
@@ -76,7 +75,7 @@ const TextUtils = {
     const prospero = text.match(/\bCRD\d{2,}\b/i);
     const orcid = text.match(/\b(?:\d{4}-){3}\d{3}[\dX]\b/);
     const ethics = /(ethics?\s*(committee|approval)|comite\s*de\s*etica|aprobacion\s*etica|aprovacao\s*etica)/i.test(fold);
-    const openAccess = /(creative\s*commons|cc\s?by|open\s*access|acceso\s*abierto|acesso\s*aberto)/i.test(fold);
+    const openAccess = /(creative\s*commons|cc\s?by|open\s*access|acceso\s*abierto|acesso\s*abierto)/i.test(fold);
     return { doi: doiMatch ? doiMatch[0] : null, trialId: nctMatch ? nctMatch[0] : null, prospero: prospero ? prospero[0] : null, orcid: orcid ? orcid[0] : null, ethicsApproval: ethics, openAccess };
   },
 };
@@ -169,7 +168,7 @@ const Lexicon = {
     // ES
     'regresion', 'logistica', 'modelo lineal', 'efectos mixtos', 'multinivel', 'bayesiano', 'propension', 'discontinuidad de regresion', 'emparejamiento',
     // PT
-    'regressao', 'logistica', 'modelo linear', 'efeitos mistos', 'multinivel', 'bayesiano', 'escore de propensao', 'descontinuidade de regressao', 'emparelhamento'
+    'regressao', 'logistica', 'modelo linear', 'efeitos mistos', 'multinivel', 'bayesiano', 'escore de propensao', 'descontinuidade de regresao', 'emparelhamento'
   ],
 };
 
@@ -247,26 +246,47 @@ class ScientificArticleAnalyzer {
     this.currentFileIndex = 0;
     this.filesToProcess = [];
     this.engine = new ClassificationEngine();
+    this.threshold = 70; // Umbral por defecto
     this.initializeEventListeners();
   }
 
   initializeEventListeners() {
     const analyzeBtn = document.getElementById('analyzeBtn');
     const exportBtn = document.getElementById('exportBtn');
+    const thresholdRange = document.getElementById('thresholdRange');
+    const applyThreshold = document.getElementById('applyThreshold');
+    
     if (analyzeBtn) analyzeBtn.addEventListener('click', () => this.startAnalysis());
     if (exportBtn) exportBtn.addEventListener('click', () => this.exportResults());
+    if (thresholdRange) {
+      thresholdRange.addEventListener('input', (e) => {
+        document.getElementById('thresholdValue').textContent = e.target.value;
+      });
+    }
+    if (applyThreshold) {
+      applyThreshold.addEventListener('click', () => {
+        this.threshold = parseInt(document.getElementById('thresholdRange').value);
+        this.updateVerdicts();
+      });
+    }
   }
 
   async startAnalysis() {
     const fileInput = document.getElementById('pdfFiles');
-    if (!fileInput || fileInput.files.length === 0) { alert('Seleccione al menos un archivo PDF.'); return; }
+    if (!fileInput || fileInput.files.length === 0) { 
+      this.showNotification('Seleccione al menos un archivo PDF.', 'error');
+      return; 
+    }
+    
     this.filesToProcess = Array.from(fileInput.files);
     this.currentFileIndex = 0;
     this.results = [];
+    
     const progressContainer = document.getElementById('progressContainer');
     const resultsContainer = document.getElementById('resultsContainer');
     if (progressContainer) progressContainer.style.display = 'block';
     if (resultsContainer) resultsContainer.style.display = 'none';
+    
     await this.processFiles();
   }
 
@@ -276,20 +296,30 @@ class ScientificArticleAnalyzer {
       const file = this.filesToProcess[i];
       const currentFile = document.getElementById('currentFile');
       if (currentFile) currentFile.textContent = file.name;
+      
       const progress = ((i + 1) / this.filesToProcess.length) * 100;
       const progressBar = document.getElementById('progressBar');
       if (progressBar) progressBar.style.width = `${progress}%`;
-      try { this.results.push(await this.analyzePDF(file)); }
-      catch (error) { this.results.push({ filename: file.name, error: `No se pudo procesar el archivo: ${error.message}` }); }
+      
+      try { 
+        this.results.push(await this.analyzePDF(file)); 
+      } catch (error) { 
+        this.results.push({ 
+          filename: file.name, 
+          error: `No se pudo procesar el archivo: ${error.message}` 
+        }); 
+      }
     }
     this.displayResults();
   }
 
   async analyzePDF(file) {
     if (file.type !== 'application/pdf') throw new Error('El archivo no es un PDF válido');
+    
     const arrayBuffer = await file.arrayBuffer();
     if (arrayBuffer.byteLength === 0) throw new Error('El archivo está vacío');
-    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer, cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.5.136/cmaps/', cMapPacked: true });
+    
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
     const pdf = await loadingTask.promise;
     if (pdf.numPages === 0) throw new Error('El PDF no tiene páginas');
 
@@ -297,7 +327,7 @@ class ScientificArticleAnalyzer {
     for (let i = 1; i <= pdf.numPages; i++) {
       try {
         const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent({ normalizeWhitespace: true, disableCombineTextItems: false });
+        const textContent = await page.getTextContent();
         const pageText = textContent.items.map(it => it.str).join(' ').replace(/\s+/g, ' ').trim();
         pageTexts.push(pageText);
       } catch (_) {}
@@ -364,10 +394,24 @@ class ScientificArticleAnalyzer {
     };
 
     const globalScore = this.calculateGlobalScore(analysis, studyType);
-    const verdict = this.determineVerdict(globalScore);
+    const verdict = this.determineVerdict(globalScore, this.threshold);
     const contrib = this.topSignals(analysis, studyType, { pvals: quant.pvals, cis: quant.cis, effects: quant.effects, stats, software });
 
-    return { filename: file.name, totalPages: pdf.numPages, textLength: raw.length, sectionsFound: Object.keys(sections), studyType, metadata: meta, quantSignals: quant, software, stats, ...analysis, globalScore, verdict, explanations: contrib };
+    return { 
+      filename: file.name, 
+      totalPages: pdf.numPages, 
+      textLength: raw.length, 
+      sectionsFound: Object.keys(sections), 
+      studyType, 
+      metadata: meta, 
+      quantSignals: quant, 
+      software, 
+      stats, 
+      ...analysis, 
+      globalScore, 
+      verdict, 
+      explanations: contrib 
+    };
   }
 
   topSignals(analysis, studyType, extras) {
@@ -403,98 +447,209 @@ class ScientificArticleAnalyzer {
     return Math.round(total);
   }
 
-  determineVerdict(score) { if (score >= 80) return 'Aprobado'; if (score >= 60) return 'Revisión Requerida'; return 'Rechazar'; }
+  determineVerdict(score, threshold = 70) {
+    if (score >= threshold + 10) return 'Aprobado';
+    if (score >= threshold - 10) return 'Revisión Requerida';
+    return 'Rechazar';
+  }
+
+  updateVerdicts() {
+    this.results.forEach(result => {
+      if (!result.error) {
+        result.verdict = this.determineVerdict(result.globalScore, this.threshold);
+      }
+    });
+    this.displayResults();
+  }
 
   displayResults() {
     const progressContainer = document.getElementById('progressContainer');
     const resultsContainer = document.getElementById('resultsContainer');
     if (progressContainer) progressContainer.style.display = 'none';
     if (resultsContainer) resultsContainer.style.display = 'block';
+    
     const resultsBody = document.getElementById('resultsBody');
     if (!resultsBody) return;
+    
     resultsBody.innerHTML = '';
 
     this.results.forEach((r, index) => {
-      if (r.error) { resultsBody.innerHTML += `\n        <tr>\n          <td>${r.filename}</td>\n          <td colspan=\"12\" class=\"text-danger\">${r.error}</td>\n        </tr>`; return; }
-      const row = `\n        <tr>\n          <td>${r.filename}</td>\n          <td>${this.badgeScore(r.globalScore)}</td>\n          <td>${this.badgeVerdict(r.verdict)}</td>\n          <td>${this.badgeScore(this.dimScore(r.methodology))}</td>\n          <td>${this.badgeScore(this.dimScore(r.reportingQuality))}</td>\n          <td>${this.badgeScore(this.dimScore(r.transparency))}</td>\n          <td>${this.badgeScore(this.dimScore(r.rigor))}</td>\n          <td>${this.badgeScore(this.dimScore(r.relevance))}</td>\n          <td>${this.badgeScore(this.dimScore(r.presentation))}</td>\n          <td>${this.badgeScore(this.dimScore(r.accessibility))}</td>\n          <td>${r.studyType.label} (${Math.round(r.studyType.probability * 100)}%)</td>\n          <td><button class=\"btn btn-sm btn-info\" onclick=\"analyzer.showDetails(${index})\">Detalles</button></td>\n        </tr>`;
+      if (r.error) {
+        resultsBody.innerHTML += `
+          <tr>
+            <td>${r.filename}</td>
+            <td colspan="10" class="text-danger">${r.error}</td>
+          </tr>`;
+        return;
+      }
+      
+      const row = `
+        <tr>
+          <td>${r.filename}</td>
+          <td>${this.badgeScore(r.globalScore)}</td>
+          <td>${this.badgeVerdict(r.verdict)}</td>
+          <td>${this.badgeScore(this.dimScore(r.methodology))}</td>
+          <td>${this.badgeScore(this.dimScore(r.reportingQuality))}</td>
+          <td>${this.badgeScore(this.dimScore(r.transparency))}</td>
+          <td>${this.badgeScore(this.dimScore(r.rigor))}</td>
+          <td>${this.badgeScore(this.dimScore(r.relevance))}</td>
+          <td>${this.badgeScore(this.dimScore(r.presentation))}</td>
+          <td>${this.badgeScore(this.dimScore(r.accessibility))}</td>
+          <td>
+            <button class="btn btn-sm btn-info" onclick="analyzer.showDetails(${index})">
+              <i class="fas fa-eye"></i> Detalles
+            </button>
+          </td>
+        </tr>`;
       resultsBody.innerHTML += row;
     });
+    
+    this.updateMetrics();
     this.createCharts();
   }
 
-  dimScore(dimension) { const vals = Object.values(dimension); const num = vals.filter(v => v === true || typeof v === 'number').length; return Math.round((num / vals.length) * 100); }
-  badgeScore(score) { const cls = score >= 80 ? 'score-high' : score >= 60 ? 'score-medium' : 'score-low'; return `<span class=\"score-cell ${cls}\">${score}</span>`; }
-  badgeVerdict(verdict) { const cls = verdict === 'Aprobado' ? 'verdict-approved' : verdict === 'Revisión Requerida' ? 'verdict-review' : 'verdict-reject'; return `<span class=\"${cls}\">${verdict}</span>`; }
+  updateMetrics() {
+    const validResults = this.results.filter(r => !r.error);
+    const totalArticles = validResults.length;
+    const avgQuality = totalArticles > 0 
+      ? Math.round(validResults.reduce((sum, r) => sum + r.globalScore, 0) / totalArticles)
+      : 0;
+    const highQuality = validResults.filter(r => r.verdict === 'Aprobado').length;
+    const lowQuality = validResults.filter(r => r.verdict === 'Rechazar').length;
+
+    document.getElementById('totalArticles').textContent = totalArticles;
+    document.getElementById('avgQuality').textContent = avgQuality;
+    document.getElementById('highQuality').textContent = highQuality;
+    document.getElementById('lowQuality').textContent = lowQuality;
+  }
+
+  dimScore(dimension) { 
+    const vals = Object.values(dimension); 
+    const num = vals.filter(v => v === true || typeof v === 'number').length; 
+    return Math.round((num / vals.length) * 100); 
+  }
+
+  badgeScore(score) { 
+    const cls = score >= 80 ? 'score-high' : score >= 60 ? 'score-medium' : 'score-low'; 
+    return `<span class="score-indicator ${cls}">${score}</span>`; 
+  }
+
+  badgeVerdict(verdict) { 
+    const cls = verdict === 'Aprobado' ? 'bg-success' : verdict === 'Revisión Requerida' ? 'bg-warning' : 'bg-danger'; 
+    return `<span class="badge ${cls}">${verdict}</span>`; 
+  }
 
   createCharts() {
     const valid = this.results.filter(r => !r.error);
     if (valid.length === 0) return;
-    const scoresEl = document.getElementById('scoresChart');
-    if (scoresEl) new Chart(scoresEl.getContext('2d'), { type: 'bar', data: { labels: valid.map(r => r.filename), datasets: [{ label: 'Puntuación Global', data: valid.map(r => r.globalScore), backgroundColor: valid.map(r => r.verdict === 'Aprobado' ? 'rgba(40,167,69,0.7)' : r.verdict === 'Revisión Requerida' ? 'rgba(255,193,7,0.7)' : 'rgba(220,53,69,0.7)') }] }, options: { responsive: true, plugins: { legend: { display: false }, title: { display: true, text: 'Puntuaciones Globales' } }, scales: { y: { beginAtZero: true, max: 100 } } } });
-    const verdictCounts = valid.reduce((acc, r) => { acc[r.verdict] = (acc[r.verdict] || 0) + 1; return acc; }, {});
-    const verdictEl = document.getElementById('verdictChart');
-    if (verdictEl) new Chart(verdictEl.getContext('2d'), { type: 'doughnut', data: { labels: Object.keys(verdictCounts), datasets: [{ data: Object.values(verdictCounts), backgroundColor: ['rgba(40,167,69,0.7)','rgba(255,193,7,0.7)','rgba(220,53,69,0.7)'] }] }, options: { responsive: true, plugins: { legend: { position: 'bottom' }, title: { display: true, text: 'Distribución de Veredictos' } } } });
-    const byType = valid.reduce((acc, r) => { const k = r.studyType.label; acc[k] = (acc[k] || 0) + 1; return acc; }, {});
-    const studyEl = document.getElementById('studyTypeChart');
-    if (studyEl) new Chart(studyEl.getContext('2d'), { type: 'bar', data: { labels: Object.keys(byType), datasets: [{ label: 'Número de artículos', data: Object.values(byType), backgroundColor: 'rgba(54,162,235,0.7)' }] }, options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false }, title: { display: true, text: 'Clasificación por tipo de estudio' } } } });
+
+    // Gráfico de puntuaciones
+    const scoresCtx = document.getElementById('scoresChart').getContext('2d');
+    if (window.scoresChart) window.scoresChart.destroy();
+    window.scoresChart = new Chart(scoresCtx, {
+      type: 'bar',
+      data: {
+        labels: valid.map(r => r.filename),
+        datasets: [{
+          label: 'Puntuación Global',
+          data: valid.map(r => r.globalScore),
+          backgroundColor: valid.map(r => 
+            r.verdict === 'Aprobado' ? 'rgba(40, 167, 69, 0.7)' : 
+            r.verdict === 'Revisión Requerida' ? 'rgba(255, 193, 7, 0.7)' : 
+            'rgba(220, 53, 69, 0.7)'
+          )
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          title: { display: true, text: 'Puntuaciones Globales' }
+        },
+        scales: {
+          y: { beginAtZero: true, max: 100 }
+        }
+      }
+    });
+
+    // Gráfico de veredictos
+    const verdictCounts = valid.reduce((acc, r) => {
+      acc[r.verdict] = (acc[r.verdict] || 0) + 1;
+      return acc;
+    }, {});
+
+    const verdictCtx = document.getElementById('verdictChart').getContext('2d');
+    if (window.verdictChart) window.verdictChart.destroy();
+    window.verdictChart = new Chart(verdictCtx, {
+      type: 'doughnut',
+      data: {
+        labels: Object.keys(verdictCounts),
+        datasets: [{
+          data: Object.values(verdictCounts),
+          backgroundColor: [
+            'rgba(40, 167, 69, 0.7)',
+            'rgba(255, 193, 7, 0.7)',
+            'rgba(220, 53, 69, 0.7)'
+          ]
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: 'bottom' },
+          title: { display: true, text: 'Distribución de Veredictos' }
+        }
+      }
+    });
   }
 
   showDetails(index) {
     const r = this.results[index];
     const details = document.getElementById('detailsContainer');
     if (!details) return;
-    if (r.error) { details.innerHTML = `<p class=\"text-danger\">${r.error}</p>`; return; }
-    const md = r.metadata || {}; const q = r.quantSignals || {}; const secList = (r.sectionsFound || []).join(', ');
+
+    if (r.error) {
+      details.innerHTML = `<p class="text-danger">${r.error}</p>`;
+      return;
+    }
+
+    const md = r.metadata || {};
+    const q = r.quantSignals || {};
+    const secList = (r.sectionsFound || []).join(', ');
+
     details.innerHTML = `
       <h6>${r.filename}</h6>
       <p><strong>PDF:</strong> ${r.totalPages} páginas, ${r.textLength} caracteres extraídos</p>
       <p><strong>Secciones detectadas:</strong> ${secList || 'No detectadas'}</p>
       <p><strong>Tipo de estudio:</strong> ${r.studyType.label} (${Math.round(r.studyType.probability * 100)}%)</p>
       <p><strong>DOI:</strong> ${md.doi || 'No detectado'} | <strong>Registro:</strong> ${md.trialId || md.prospero || '—'} | <strong>ORCID:</strong> ${md.orcid || '—'}</p>
-      <div class=\"detail-section\"><div class=\"detail-title\">Metodología</div><ul>
-        <li>Basado en muestra: ${r.methodology.hasSample ? 'Sí' : 'No'}</li>
-        <li>Tamaño muestral: ${r.methodology.sampleSize ?? 'No especificado'}</li>
-        <li>Variables, desfechos o covariables: ${r.methodology.hasVariables ? 'Sí' : 'No'}</li>
-        <li>Técnicas estadísticas: ${r.methodology.hasStats ? 'Sí' : 'No'}</li>
-        <li>Software: ${(r.software || []).join(', ') || '—'}</li>
-        <li>Métodos: ${(r.stats || []).join(', ') || '—'}</li>
-      </ul></div>
-      <div class=\"detail-section\"><div class=\"detail-title\">Señales cuantitativas</div><ul>
-        <li>P-valores: ${q.pvals || 0}</li>
-        <li>Intervalos de confianza: ${q.cis || 0}</li>
-        <li>Medidas de efecto: ${q.effects || 0}</li>
-      </ul></div>
-      <div class=\"detail-section\"><div class=\"detail-title\">Calidad del Reporte</div><ul>
-        <li>Estructura IMRaD: ${r.reportingQuality.hasIMRaD ? 'Sí' : 'No'}</li>
-        <li>Resumen, Abstract o Resumo: ${r.reportingQuality.hasAbstract ? 'Sí' : 'No'}</li>
-        <li>Objetivos claros: ${r.reportingQuality.hasObjectives ? 'Sí' : 'No'}</li>
-        <li>Conclusiones: ${r.reportingQuality.hasConclusions ? 'Sí' : 'No'}</li>
-      </ul></div>
-      <div class=\"detail-section\"><div class=\"detail-title\">Transparencia y Reproducibilidad</div><ul>
-        <li>Disponibilidad de datos: ${r.transparency.hasDataAvailability ? 'Sí' : 'No'}</li>
-        <li>Disponibilidad de código: ${r.transparency.hasCodeAvailability ? 'Sí' : 'No'}</li>
-        <li>Software mencionado: ${r.transparency.hasSoftwareMention ? 'Sí' : 'No'}</li>
-      </ul></div>
-      <div class=\"detail-section\"><div class=\"detail-title\">Rigor Científico</div><ul>
-        <li>Discusión de sesgos, vieses o limitaciones: ${r.rigor.hasBiasDiscussion ? 'Sí' : 'No'}</li>
-        <li>Análisis de sensibilidad, sensibilidade o robustez: ${r.rigor.hasSensitivityAnalysis ? 'Sí' : 'No'}</li>
-        <li>Significancia estadística: ${r.rigor.hasStatisticalSignificance ? 'Sí' : 'No'}</li>
-      </ul></div>
-      <div class=\"detail-section\"><div class=\"detail-title\">Relevancia y Originalidad</div><ul>
-        <li>Novedad o inovação: ${r.relevance.hasNovelty ? 'Sí' : 'No'}</li>
-        <li>Impacto: ${r.relevance.hasImpact ? 'Sí' : 'No'}</li>
-        <li>Aplicaciones: ${r.relevance.hasApplications ? 'Sí' : 'No'}</li>
-      </ul></div>
-      <div class=\"detail-section\"><div class=\"detail-title\">Presentación de Resultados</div><ul>
-        <li>Figuras o tablas: ${r.presentation.hasFigures ? 'Sí' : 'No'}</li>
-        <li>Resultados claros: ${r.presentation.hasClearResults ? 'Sí' : 'No'}</li>
-      </ul></div>
-      <div class=\"detail-section\"><div class=\"detail-title\">Accesibilidad y Ética</div><ul>
-        <li>Acceso abierto: ${r.accessibility.hasOpenAccess ? 'Sí' : 'No'}</li>
-        <li>Aprobación ética o aprovação ética: ${r.accessibility.hasEthicsApproval ? 'Sí' : 'No'}</li>
-        <li>Conflictos de interés o conflitos de interesse: ${r.accessibility.hasConflicts ? 'Sí' : 'No'}</li>
-      </ul></div>
-      <div class=\"detail-section\"><div class=\"detail-title\">Principales señales</div><ul>${r.explanations.map(s => `<li>${s}</li>`).join('')}</ul></div>`;
+      
+      <div class="detail-section">
+        <div class="detail-title">Metodología</div>
+        <ul>
+          <li>Basado en muestra: ${r.methodology.hasSample ? 'Sí' : 'No'}</li>
+          <li>Tamaño muestral: ${r.methodology.sampleSize ?? 'No especificado'}</li>
+          <li>Variables, desfechos o covariables: ${r.methodology.hasVariables ? 'Sí' : 'No'}</li>
+          <li>Técnicas estadísticas: ${r.methodology.hasStats ? 'Sí' : 'No'}</li>
+          <li>Software: ${(r.software || []).join(', ') || '—'}</li>
+          <li>Métodos: ${(r.stats || []).join(', ') || '—'}</li>
+        </ul>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-title">Señales cuantitativas</div>
+        <ul>
+          <li>P-valores: ${q.pvals || 0}</li>
+          <li>Intervalos de confianza: ${q.cis || 0}</li>
+          <li>Medidas de efecto: ${q.effects || 0}</li>
+        </ul>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-title">Principales señales</div>
+        <ul>${r.explanations.map(s => `<li>${s}</li>`).join('')}</ul>
+      </div>
+    `;
   }
 
   exportResults() {
@@ -514,12 +669,20 @@ class ScientificArticleAnalyzer {
       'Código disponible': r.transparency ? (r.transparency.hasCodeAvailability ? 'Sí' : 'No') : '—',
       'Ética': r.accessibility ? (r.accessibility.hasEthicsApproval ? 'Sí' : 'No') : '—',
     }));
+
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(exportData);
     XLSX.utils.book_append_sheet(wb, ws, 'Resultados');
     XLSX.writeFile(wb, 'resultados_analisis.xlsx');
   }
+
+  showNotification(message, type = 'info') {
+    // Implementar notificación según tu sistema de UI
+    alert(`${type.toUpperCase()}: ${message}`);
+  }
 }
 
 // Inicialización
-window.addEventListener('DOMContentLoaded', () => { window.analyzer = new ScientificArticleAnalyzer(); });
+window.addEventListener('DOMContentLoaded', () => { 
+  window.analyzer = new ScientificArticleAnalyzer(); 
+});
