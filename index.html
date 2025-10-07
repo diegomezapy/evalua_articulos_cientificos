@@ -10,35 +10,222 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* Estilos personalizados aquí */
-        .score-cell { padding: 5px 10px; border-radius: 4px; color: white; }
-        .score-high { background-color: #28a745; }
-        .score-medium { background-color: #ffc107; color: black; }
-        .score-low { background-color: #dc3545; }
-        .verdict-approved { color: #28a745; font-weight: bold; }
-        .verdict-review { color: #ffc107; font-weight: bold; }
-        .verdict-reject { color: #dc3545; font-weight: bold; }
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
+            min-height: 100vh;
+            padding-bottom: 2rem;
+        }
+        
+        .card {
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+            border: none;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            border-bottom: none;
+            border-radius: 0.5rem 0.5rem 0 0 !important;
+            padding: 1rem 1.5rem;
+        }
+        
+        .card-header h5 {
+            margin: 0;
+            font-weight: 600;
+        }
+        
+        .btn {
+            border-radius: 0.375rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .progress {
+            height: 1.25rem;
+            border-radius: 0.625rem;
+            background-color: #e9ecef;
+        }
+        
+        .progress-bar {
+            border-radius: 0.625rem;
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        }
+        
+        .table th {
+            background-color: #f8f9fa;
+            border-top: none;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .badge {
+            font-size: 0.85em;
+            padding: 0.4em 0.6em;
+            border-radius: 0.375rem;
+        }
+        
+        #detailsContainer {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        #detailsContainer h6 {
+            color: #495057;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+        
+        .score-indicator {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-weight: 600;
+            color: white;
+            font-size: 0.9rem;
+        }
+        
+        .score-high {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+        
+        .score-medium {
+            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+        }
+        
+        .score-low {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        }
+        
+        .navbar {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+        }
+        
+        .file-input-container {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+        
+        .file-input-container input[type=file] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        
+        .file-input-label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            border: 2px dashed #007bff;
+            border-radius: 0.5rem;
+            background-color: rgba(0, 123, 255, 0.05);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-align: center;
+        }
+        
+        .file-input-label:hover {
+            background-color: rgba(0, 123, 255, 0.1);
+            border-color: #0056b3;
+        }
+        
+        .file-input-label i {
+            font-size: 3rem;
+            color: #007bff;
+            margin-bottom: 1rem;
+        }
+        
+        @media (max-width: 768px) {
+            .table-responsive {
+                font-size: 0.875rem;
+            }
+            
+            .btn-sm {
+                padding: 0.25rem 0.5rem;
+                font-size: 0.775rem;
+            }
+            
+            .card-body {
+                padding: 1rem;
+            }
+            
+            .file-input-label {
+                padding: 1.5rem;
+            }
+            
+            .file-input-label i {
+                font-size: 2.5rem;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="container mt-5">
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-microscope me-2"></i>
+                ScientificQuality Analyzer
+            </a>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
         <h1 class="text-center mb-4">Evaluador de Calidad de Artículos Científicos</h1>
         
         <div class="card mb-4">
             <div class="card-header">
-                <h5>Cargar Artículos PDF</h5>
+                <h5><i class="fas fa-file-upload me-2"></i>Cargar Artículos PDF</h5>
             </div>
             <div class="card-body">
-                <div class="form-group">
-                    <label for="pdfFiles">Seleccionar archivos PDF:</label>
+                <div class="file-input-container">
                     <input type="file" id="pdfFiles" class="form-control-file" multiple accept=".pdf">
+                    <label for="pdfFiles" class="file-input-label">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <h5>Arrastra tus archivos PDF aquí o haz clic para seleccionar</h5>
+                        <p class="text-muted">Puedes seleccionar múltiples archivos a la vez</p>
+                    </label>
                 </div>
-                <button id="analyzeBtn" class="btn btn-primary mt-3">Analizar Artículos</button>
-                <div id="progressContainer" class="mt-3" style="display: none;">
-                    <div class="progress">
+                <button id="analyzeBtn" class="btn btn-primary btn-lg w-100">
+                    <i class="fas fa-chart-line me-2"></i> Analizar Artículos
+                </button>
+                <div id="progressContainer" class="mt-4" style="display: none;">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Progreso del análisis</span>
+                        <span id="progressPercent">0%</span>
+                    </div>
+                    <div class="progress mb-3">
                         <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
                     </div>
-                    <p id="progressText" class="text-center mt-2">Procesando: <span id="currentFile"></span></p>
+                    <p id="progressText" class="text-center">
+                        <i class="fas fa-file-alt me-2"></i>
+                        Procesando: <span id="currentFile" class="font-weight-bold">archivo.pdf</span>
+                    </p>
                 </div>
             </div>
         </div>
@@ -46,16 +233,22 @@
         <div id="resultsContainer" style="display: none;">
             <div class="card mb-4">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5>Resultados del Análisis</h5>
-                    <button id="exportBtn" class="btn btn-success">Exportar Resultados (Excel)</button>
+                    <h5><i class="fas fa-chart-bar me-2"></i>Resultados del Análisis</h5>
+                    <button id="exportBtn" class="btn btn-success">
+                        <i class="fas fa-file-excel me-2"></i> Exportar a Excel
+                    </button>
                 </div>
                 <div class="card-body">
-                    <div class="row">
+                    <div class="row mb-4">
                         <div class="col-md-6">
-                            <canvas id="scoresChart"></canvas>
+                            <div class="chart-container" style="position: relative; height: 300px;">
+                                <canvas id="scoresChart"></canvas>
+                            </div>
                         </div>
                         <div class="col-md-6">
-                            <canvas id="verdictChart"></canvas>
+                            <div class="chart-container" style="position: relative; height: 300px;">
+                                <canvas id="verdictChart"></canvas>
+                            </div>
                         </div>
                     </div>
                     
@@ -86,18 +279,843 @@
             
             <div class="card">
                 <div class="card-header">
-                    <h5>Detalles del Artículo Seleccionado</h5>
+                    <h5><i class="fas fa-info-circle me-2"></i>Detalles del Artículo Seleccionado</h5>
                 </div>
                 <div class="card-body" id="detailsContainer">
-                    <p>Seleccione un artículo de la tabla para ver detalles.</p>
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-file-medical fa-3x mb-3"></i>
+                        <p>Selecciona un artículo de la tabla para ver los detalles completos de la evaluación.</p>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Código JavaScript para el análisis de artículos
-        // ... (Aquí va el código completo de ScientificArticleAnalyzer y dependencias)
+        // Configuración de PDF.js
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+
+        // Utilidades de texto y patrones multilingües
+        const TextUtils = {
+            normalize(raw) {
+                if (!raw) return { raw: '', norm: '', fold: '' };
+                const dehyphen = raw.replace(/-(\r?\n|\s{1,2})/g, '');
+                const ligatures = dehyphen
+                    .replace(/[ﬁﬂﬀﬃﬄ]/g, m => ({ 'ﬁ': 'fi', 'ﬂ': 'fl', 'ﬀ': 'ff', 'ﬃ': 'ffi', 'ﬄ': 'ffl' }[m] || m));
+                const cleaned = ligatures.replace(/\u00ad/g, '').replace(/\s+/g, ' ').trim();
+                const lower = cleaned.toLowerCase();
+                const fold = lower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                return { raw: cleaned, norm: lower, fold };
+            },
+
+            stripRepeatedLines(pages, minLen = 12, minFrac = 0.6) {
+                const freq = new Map();
+                const total = pages.length;
+                for (const p of pages) {
+                    const lines = p.split(/\n| {2,}/g).map(s => s.trim()).filter(s => s.length >= minLen);
+                    for (const l of lines) freq.set(l, (freq.get(l) || 0) + 1);
+                }
+                const blacklist = new Set([...freq.entries()].filter(([l, c]) => c / total >= minFrac).map(([l]) => l));
+                const cleanedPages = pages.map(p => p.split(/\n/g).filter(line => !blacklist.has(line.trim())).join('\n'));
+                return cleanedPages.join('\n');
+            },
+
+            splitSections(rawText) {
+                const { fold } = TextUtils.normalize(rawText);
+                const labels = {
+                    abstract: ['abstract', 'resumen', 'summary', 'resumo'],
+                    keywords: ['keywords', 'palabras clave', 'palavras chave', 'palavras-chave'],
+                    introduction: ['introduction', 'introduccion', 'introducao', 'background'],
+                    methods: ['methods', 'metodos', 'metodologia', 'materials and methods', 'materiales y metodos', 'materiais e metodos'],
+                    results: ['results', 'resultados'],
+                    discussion: ['discussion', 'discusion', 'discussao'],
+                    conclusions: ['conclusions', 'conclusiones', 'conclusoes'],
+                    references: ['references', 'referencias', 'bibliografia', 'bibliography'],
+                };
+
+                const hits = [];
+                const headerRegexFrom = (arr) => new RegExp(`(?:^|\n\\s*)(?:${arr.map(s => s.replace(/[-/\\^$*+?.()|[\]{}]/g, r => `\\${r}`)).join('|')})\\b[\\s:]*`, 'gi');
+                for (const [key, arr] of Object.entries(labels)) {
+                    const re = headerRegexFrom(arr);
+                    let m;
+                    while ((m = re.exec(fold)) !== null) {
+                        hits.push({ key, start: m.index, end: m.index + m[0].length });
+                    }
+                }
+                hits.sort((a, b) => a.start - b.start);
+                const sections = {};
+                for (let i = 0; i < hits.length; i++) {
+                    const cur = hits[i];
+                    const next = hits[i + 1];
+                    const slice = fold.slice(cur.end, next ? next.start : undefined).trim();
+                    sections[cur.key] = slice;
+                }
+                return sections;
+            },
+
+            extractMetadata(text) {
+                const { fold } = TextUtils.normalize(text);
+                const doiMatch = text.match(/\b10\.\d{4,9}\/[-._;()\/:A-Z0-9]+/i);
+                const nctMatch = text.match(/\bNCT\d{8}\b/i);
+                const prospero = text.match(/\bCRD\d{2,}\b/i);
+                const orcid = text.match(/\b(?:\d{4}-){3}\d{3}[\dX]\b/);
+                const ethics = /(ethics?\s*(committee|approval)|comite\s*de\s*etica|aprobacion\s*etica|aprovacao\s*etica)/i.test(fold);
+                const openAccess = /(creative\s*commons|cc\s?by|open\s*access|acceso\s*abierto|acesso\s*abierto)/i.test(fold);
+                return {
+                    doi: doiMatch ? doiMatch[0] : null,
+                    trialId: nctMatch ? nctMatch[0] : null,
+                    prospero: prospero ? prospero[0] : null,
+                    orcid: orcid ? orcid[0] : null,
+                    ethicsApproval: ethics,
+                    openAccess
+                };
+            },
+        };
+
+        // Léxicos multilingües
+        const Lexicon = {
+            studyTypes: {
+                rct: {
+                    label: 'Ensayo clínico aleatorizado',
+                    hints: [
+                        'randomized', 'randomised', 'double blind', 'single blind', 'placebo', 'trial', 'allocation',
+                        'intention to treat', 'allocation concealment', 'arm', 'parallel group', 'crossover', 'cluster randomized',
+                        'aleatoriz', 'doble ciego', 'placebo', 'ensayo', 'grupo paralelo', 'cruzado', 'intencion de tratar',
+                        'randomizado', 'duplo cego', 'ensaio', 'grupo paralelo', 'cruzado', 'intencao de tratar'
+                    ],
+                    weight: 1.2,
+                },
+                cohort: {
+                    label: 'Cohorte',
+                    hints: [
+                        'cohort', 'follow up', 'longitudinal', 'incidence', 'hazard ratio', 'cox model', 'risk ratio', 'exposed',
+                        'cohorte', 'seguimiento', 'razon de riesgos', 'modelo de cox', 'riesgo relativo',
+                        'coorte', 'acompanhamento', 'razao de risco', 'modelo de cox', 'risco relativo'
+                    ],
+                    weight: 1.0,
+                },
+                casecontrol: {
+                    label: 'Casos y controles',
+                    hints: [
+                        'case control', 'matched controls', 'odds ratio', 'controls selected',
+                        'casos y controles', 'apareamiento', 'pareados', 'razon de momios',
+                        'caso controle', 'pareado', 'razao de chances'
+                    ],
+                    weight: 1.0,
+                },
+                crosssectional: {
+                    label: 'Transversal',
+                    hints: ['cross sectional', 'transversal', 'prevalence study', 'survey', 'baseline assessment', 'prevalencia', 'inquerito', 'estudo transversal'],
+                    weight: 0.9,
+                },
+                systematic: {
+                    label: 'Revisión sistemática',
+                    hints: ['systematic review', 'prisma', 'registered protocol', 'eligibility criteria', 'risk of bias tool', 'revisao sistematica', 'criterios de elegibilidad', 'criterios de elegibilidade'],
+                    weight: 1.1,
+                },
+                metaanalysis: {
+                    label: 'Meta-análisis',
+                    hints: ['meta analysis', 'meta analisis', 'meta analise', 'pooled effect', 'i^2', 'heterogeneity', 'forest plot', 'der simonian', 'random effects', 'efeito combinado', 'heterogeneidade', 'grafico de floresta'],
+                    weight: 1.2,
+                },
+                qualitative: {
+                    label: 'Cualitativo',
+                    hints: ['interviews', 'focus group', 'thematic analysis', 'grounded theory', 'saturation', 'coding scheme', 'entrevistas', 'grupos focales', 'analise tematica', 'grupo focal', 'teoria fundamentada'],
+                    weight: 0.9,
+                },
+                methods: {
+                    label: 'Artículo metodológico',
+                    hints: ['methodological paper', 'simulation study', 'monte carlo', 'algorithm', 'validation study', 'benchmark', 'estudio metodologico', 'estudo metodologico', 'estudo de simulacao'],
+                    weight: 0.9,
+                },
+                timeSeries: {
+                    label: 'Serie de tiempo',
+                    hints: ['time series', 'serie de tiempo', 'serie temporal', 'arima', 'sarima', 'var model', 'seasonal', 'diferenca em diferencas', 'difference in differences', 'painel', 'panel data', 'granger'],
+                    weight: 0.9,
+                },
+                economicEval: {
+                    label: 'Evaluación económica',
+                    hints: ['cost effectiveness', 'cost utility', 'markov model', 'qalys', 'incremental cost', 'icer', 'budget impact', 'costo efectividad', 'custo efetividade', 'custo utilidade', 'impacto orcamentario'],
+                    weight: 1.1,
+                },
+            },
+
+            software: [
+                ' r ', 'stata', 'spss', 'sas', 'python', 'matlab', 'julia', 'eviews', 'gretl', 'mplus', 'winbugs', 'jags', 'stan', 'epidat'
+            ],
+
+            stats: [
+                'regression', 'logistic', 'linear model', 'anova', 'ancova', 'mixed effects', 'multilevel', 'bayesian', 'bootstrap', 'propensity score', 'cox', 'poisson', 'negative binomial', 'gee', 'glm', 'iv instrumental', 'regression discontinuity', 'matching', 'kaplan meier',
+                'regresion', 'logistica', 'modelo lineal', 'efectos mixtos', 'multinivel', 'bayesiano', 'propension', 'discontinuidad de regresion', 'emparejamiento',
+                'regressao', 'logistica', 'modelo linear', 'efeitos mistos', 'multinivel', 'bayesiano', 'escore de propensao', 'descontinuidade de regresao', 'emparelhamento'
+            ],
+        };
+
+        // Función BM25 para scoring
+        function bm25Score(textFold, terms, k1 = 1.2, b = 0.75) {
+            const tokens = textFold.split(/[^a-z0-9]+/i).filter(Boolean);
+            const N = 1e6;
+            const avgdl = 2000;
+            const dl = tokens.length;
+            const tf = new Map();
+            for (const t of tokens) tf.set(t, (tf.get(t) || 0) + 1);
+            let score = 0;
+            for (const term of terms) {
+                const t = term.toLowerCase();
+                const f = tf.get(t) || 0;
+                if (!f) continue;
+                const df = Math.max(1, Math.floor(Math.sqrt(N) / 50));
+                const idf = Math.log((N - df + 0.5) / (df + 0.5) + 1);
+                score += idf * ((f * (k1 + 1)) / (f + k1 * (1 - b + b * (dl / avgdl))));
+            }
+            return score;
+        }
+
+        // Motor de clasificación
+        class ClassificationEngine {
+            constructor() {
+                this.lex = Lexicon;
+            }
+
+            detectStudyType(text) {
+                const { fold } = TextUtils.normalize(text);
+                const rawScores = {};
+                for (const [key, cfg] of Object.entries(this.lex.studyTypes)) {
+                    rawScores[key] = bm25Score(fold, cfg.hints.map(h => TextUtils.normalize(h).fold)) * cfg.weight;
+                }
+                if (rawScores.metaanalysis > 0 && rawScores.systematic > 0) rawScores.metaanalysis *= 1.15;
+                const max = Math.max(...Object.values(rawScores), 1e-6);
+                const expScores = Object.fromEntries(Object.entries(rawScores).map(([k, v]) => [k, Math.exp((v / max) * 4)]));
+                const sum = Object.values(expScores).reduce((a, b) => a + b, 0);
+                const probs = Object.fromEntries(Object.entries(expScores).map(([k, v]) => [k, v / sum]));
+                const bestKey = Object.entries(probs).sort((a, b) => b[1] - a[1])[0][0];
+                return {
+                    key: bestKey,
+                    label: this.lex.studyTypes[bestKey].label,
+                    probability: +probs[bestKey].toFixed(3),
+                    distribution: probs
+                };
+            }
+
+            extractQuantSignals(text) {
+                const { fold } = TextUtils.normalize(text);
+                const pvals = (fold.match(/p\s*[=<>]\s*0?\.\d+/gi) || []).length;
+                const cis = (fold.match(/(95|90|99)\%\s*ci\s*[:\(\[]\s*-?\d+(?:\.\d+)?\s*[,;]\s*-?\d+(?:\.\d+)?/gi) || []).length;
+                const effects = (fold.match(/\b(or|rr|hr)\s*[=:]\s*-?\d+(?:\.\d+)?/gi) || []).length;
+                const sampleN = (() => {
+                    const m = fold.match(/\b[ns]\s*[=:]\s*(\d{2,7})\b/i) || fold.match(/\b(muestra|sample|participants?|amostra)\b\s*(de|of)?\s*(\d{2,7})\b/i);
+                    return m ? parseInt(m[1] || m[3], 10) : null;
+                })();
+                return { pvals, cis, effects, sampleN };
+            }
+
+            detectSoftware(text) {
+                const { fold } = TextUtils.normalize(text);
+                const found = new Set();
+                for (const s of Lexicon.software) {
+                    if (fold.includes(TextUtils.normalize(s).fold)) found.add(s.trim());
+                }
+                return [...found];
+            }
+
+            detectStats(text) {
+                const { fold } = TextUtils.normalize(text);
+                const found = new Set();
+                for (const s of Lexicon.stats) {
+                    if (fold.includes(TextUtils.normalize(s).fold)) found.add(s.trim());
+                }
+                return [...found];
+            }
+        }
+
+        // Clase principal del analizador
+        class ScientificArticleAnalyzer {
+            constructor() {
+                this.results = [];
+                this.currentFileIndex = 0;
+                this.filesToProcess = [];
+                this.engine = new ClassificationEngine();
+                this.initializeEventListeners();
+            }
+
+            initializeEventListeners() {
+                const analyzeBtn = document.getElementById('analyzeBtn');
+                const exportBtn = document.getElementById('exportBtn');
+                
+                if (analyzeBtn) analyzeBtn.addEventListener('click', () => this.startAnalysis());
+                if (exportBtn) exportBtn.addEventListener('click', () => this.exportResults());
+            }
+
+            async startAnalysis() {
+                const fileInput = document.getElementById('pdfFiles');
+                if (!fileInput || fileInput.files.length === 0) {
+                    alert('Seleccione al menos un archivo PDF.');
+                    return;
+                }
+                
+                this.filesToProcess = Array.from(fileInput.files);
+                this.currentFileIndex = 0;
+                this.results = [];
+                
+                const progressContainer = document.getElementById('progressContainer');
+                const resultsContainer = document.getElementById('resultsContainer');
+                if (progressContainer) progressContainer.style.display = 'block';
+                if (resultsContainer) resultsContainer.style.display = 'none';
+                
+                await this.processFiles();
+            }
+
+            async processFiles() {
+                for (let i = 0; i < this.filesToProcess.length; i++) {
+                    this.currentFileIndex = i;
+                    const file = this.filesToProcess[i];
+                    
+                    // Actualizar progreso
+                    const currentFile = document.getElementById('currentFile');
+                    const progressBar = document.getElementById('progressBar');
+                    const progressPercent = document.getElementById('progressPercent');
+                    
+                    if (currentFile) currentFile.textContent = file.name;
+                    
+                    const progress = ((i + 1) / this.filesToProcess.length) * 100;
+                    if (progressBar) progressBar.style.width = `${progress}%`;
+                    if (progressPercent) progressPercent.textContent = `${Math.round(progress)}%`;
+                    
+                    try {
+                        this.results.push(await this.analyzePDF(file));
+                    } catch (error) {
+                        this.results.push({
+                            filename: file.name,
+                            error: `No se pudo procesar el archivo: ${error.message}`
+                        });
+                    }
+                }
+                this.displayResults();
+            }
+
+            async analyzePDF(file) {
+                if (file.type !== 'application/pdf') {
+                    throw new Error('El archivo no es un PDF válido');
+                }
+                
+                const arrayBuffer = await file.arrayBuffer();
+                if (arrayBuffer.byteLength === 0) {
+                    throw new Error('El archivo está vacío');
+                }
+                
+                const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+                const pdf = await loadingTask.promise;
+                
+                if (pdf.numPages === 0) {
+                    throw new Error('El PDF no tiene páginas');
+                }
+
+                // Extraer texto de todas las páginas
+                const pageTexts = [];
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    try {
+                        const page = await pdf.getPage(i);
+                        const textContent = await page.getTextContent();
+                        const pageText = textContent.items.map(item => item.str).join(' ');
+                        pageTexts.push(pageText);
+                    } catch (error) {
+                        console.warn(`Error extrayendo texto de la página ${i}:`, error);
+                    }
+                }
+
+                const fullText = pageTexts.join('\n');
+                const { raw, fold } = TextUtils.normalize(fullText);
+                
+                if (raw.length < 80) {
+                    throw new Error(`No se pudo extraer suficiente texto (${raw.length} caracteres)`);
+                }
+
+                // Análisis del texto
+                const sections = TextUtils.splitSections(raw);
+                const meta = TextUtils.extractMetadata(raw);
+                const quant = this.engine.extractQuantSignals(raw);
+                const dominantScope = [sections.methods, sections.abstract, raw].find(Boolean);
+                const studyType = this.engine.detectStudyType(dominantScope);
+                const software = this.engine.detectSoftware(raw);
+                const stats = this.engine.detectStats(raw);
+
+                // Detección de características estructurales
+                const hasIMRaD = this.detectIMRaDStructure(fold);
+                const hasAbstract = /(abstract|resumen|summary|resumo)\b/i.test(fold);
+                const hasObjectives = /(objective|objetivo|objetivos)\b/i.test(fold);
+                const hasConclusions = /(conclusion|conclusiones|conclusoes)\b/i.test(fold);
+
+                const hasDataAvailability = /(data\s*availability|datos\s*disponibles|disponibilidade\s*de\s*dados|repositorio)/i.test(fold);
+                const hasCodeAvailability = /(code\s*availability|github|gitlab|bitbucket|osf\.io)/i.test(fold);
+                const variables = /(variable(s)?\s*(dependiente|independiente)|variavel|covariates?|covariaveis|outcomes?|desfechos|predictors?|preditores)/i.test(fold);
+
+                const hasBiasDiscussion = /(bias|sesgo|vi[ea]s|limitacion|limitacoes|limitacao|debilidad|fraqueza)\b/i.test(fold);
+                const hasSensitivityAnalysis = /(sensitivity\s*analysis|analisis\s*de\s*sensibilidad|analise\s*de\s*sensibilidade)/i.test(fold);
+                const hasStatisticalSignificance = /(statistically\s*significant|significativo\s*estadistico|significante\s*estatistico)/i.test(fold);
+
+                const hasNovelty = /(novel|novedoso|inovador|first\s*report)/i.test(fold);
+                const hasImpact = /(impact|importante|relevante|contribucion\s*significativa|contribuicao\s*significativa)/i.test(fold);
+                const hasApplications = /(applications?|aplicaciones?|aplicacoes?|implicaciones?)\b/i.test(fold);
+
+                const hasFigures = /(figure|figura|table|tabla|tabela|graph|grafico)\b/i.test(fold);
+                const hasClearResults = /(results\s*show|encontramos|observamos|foi\s*observado|demonstrated|demonstramos|demostramos)/i.test(fold);
+
+                const hasOpenAccess = meta.openAccess;
+                const hasEthicsApproval = meta.ethicsApproval || /(informed\s*consent|consentimiento\s*informado|consentimento\s*informado)/i.test(fold);
+                const hasConflicts = /(conflicts?\s*of\s*interest|declaracion\s*de\s*intereses|conflito(s)?\s*de\s*interesse(s)?)/i.test(fold);
+
+                // Estructura del análisis
+                const analysis = {
+                    methodology: {
+                        hasSample: quant.sampleN != null,
+                        sampleSize: quant.sampleN,
+                        hasVariables: variables,
+                        hasStats: stats.length > 0
+                    },
+                    reportingQuality: {
+                        hasIMRaD,
+                        hasAbstract,
+                        hasObjectives,
+                        hasConclusions
+                    },
+                    transparency: {
+                        hasDataAvailability,
+                        hasCodeAvailability,
+                        hasSoftwareMention: software.length > 0
+                    },
+                    rigor: {
+                        hasBiasDiscussion,
+                        hasSensitivityAnalysis,
+                        hasStatisticalSignificance
+                    },
+                    relevance: {
+                        hasNovelty,
+                        hasImpact,
+                        hasApplications
+                    },
+                    presentation: {
+                        hasFigures,
+                        hasClearResults
+                    },
+                    accessibility: {
+                        hasOpenAccess,
+                        hasEthicsApproval,
+                        hasConflicts
+                    }
+                };
+
+                const globalScore = this.calculateGlobalScore(analysis, studyType);
+                const verdict = this.determineVerdict(globalScore);
+                const explanations = this.getTopSignals(analysis, studyType, quant, stats, software);
+
+                return {
+                    filename: file.name,
+                    totalPages: pdf.numPages,
+                    textLength: raw.length,
+                    sectionsFound: Object.keys(sections),
+                    studyType,
+                    metadata: meta,
+                    quantSignals: quant,
+                    software,
+                    stats,
+                    ...analysis,
+                    globalScore,
+                    verdict,
+                    explanations
+                };
+            }
+
+            detectIMRaDStructure(fold) {
+                const intro = ['introduction', 'introduccion', 'introducao'];
+                const meth = ['methods', 'metodos', 'metodologia'];
+                const resu = ['results', 'resultados'];
+                const disc = ['discussion', 'discusion', 'discussao'];
+                
+                const pos = (terms) => {
+                    const positions = terms.map(term => fold.indexOf(term)).filter(x => x >= 0);
+                    return positions.length > 0 ? Math.min(...positions) : -1;
+                };
+
+                const i = pos(intro);
+                const m = pos(meth);
+                const r = pos(resu);
+                const d = pos(disc);
+
+                return i >= 0 && m >= 0 && r >= 0 && d >= 0 && i < m && m < r && r < d;
+            }
+
+            calculateGlobalScore(analysis, studyType) {
+                const weights = {
+                    methodology: 0.27,
+                    reportingQuality: 0.18,
+                    transparency: 0.15,
+                    rigor: 0.17,
+                    relevance: 0.13,
+                    presentation: 0.05,
+                    accessibility: 0.05
+                };
+
+                // Ajustes por tipo de estudio
+                const key = studyType.key;
+                if (key === 'rct' || key === 'cohort' || key === 'casecontrol') {
+                    weights.rigor += 0.03;
+                    weights.methodology += 0.02;
+                }
+                if (key === 'systematic' || key === 'metaanalysis') {
+                    weights.transparency += 0.03;
+                    weights.reportingQuality += 0.02;
+                }
+
+                const scoreDim = (obj) => {
+                    const vals = Object.values(obj);
+                    const num = vals.filter(v => v === true || typeof v === 'number').length;
+                    return Math.round((num / vals.length) * 100);
+                };
+
+                const methodologyScore = scoreDim(analysis.methodology);
+                const reportingScore = scoreDim(analysis.reportingQuality);
+                const transparencyScore = scoreDim(analysis.transparency);
+                const rigorScore = scoreDim(analysis.rigor);
+                const relevanceScore = scoreDim(analysis.relevance);
+                const presentationScore = scoreDim(analysis.presentation);
+                const accessibilityScore = scoreDim(analysis.accessibility);
+
+                const total = methodologyScore * weights.methodology +
+                             reportingScore * weights.reportingQuality +
+                             transparencyScore * weights.transparency +
+                             rigorScore * weights.rigor +
+                             relevanceScore * weights.relevance +
+                             presentationScore * weights.presentation +
+                             accessibilityScore * weights.accessibility;
+
+                return Math.round(total);
+            }
+
+            determineVerdict(score) {
+                if (score >= 80) return 'Aprobado';
+                if (score >= 60) return 'Revisión Requerida';
+                return 'Rechazar';
+            }
+
+            getTopSignals(analysis, studyType, quant, stats, software) {
+                const signals = [];
+                if (analysis.methodology.hasStats) signals.push('Menciona técnicas estadísticas');
+                if (analysis.methodology.hasVariables) signals.push('Declara variables, covariables o desfechos');
+                if (analysis.reportingQuality.hasIMRaD) signals.push('Estructura IMRaD detectada');
+                if (analysis.transparency.hasDataAvailability) signals.push('Sección de datos disponibles');
+                if (analysis.transparency.hasCodeAvailability) signals.push('Código o repositorio mencionado');
+                if (analysis.rigor.hasSensitivityAnalysis) signals.push('Análisis de sensibilidad');
+                if (quant.pvals > 0) signals.push(`P-valores detectados: ${quant.pvals}`);
+                if (quant.cis > 0) signals.push(`Intervalos de confianza detectados: ${quant.cis}`);
+                if (quant.effects > 0) signals.push(`Medidas de efecto detectadas: ${quant.effects}`);
+                signals.push(`Tipo de estudio sugerido: ${studyType.label} (${Math.round(studyType.probability * 100)}%)`);
+                return signals.slice(0, 8);
+            }
+
+            displayResults() {
+                const progressContainer = document.getElementById('progressContainer');
+                const resultsContainer = document.getElementById('resultsContainer');
+                if (progressContainer) progressContainer.style.display = 'none';
+                if (resultsContainer) resultsContainer.style.display = 'block';
+                
+                const resultsBody = document.getElementById('resultsBody');
+                if (!resultsBody) return;
+                
+                resultsBody.innerHTML = '';
+
+                this.results.forEach((result, index) => {
+                    if (result.error) {
+                        resultsBody.innerHTML += `
+                            <tr>
+                                <td>${result.filename}</td>
+                                <td colspan="10" class="text-danger">${result.error}</td>
+                            </tr>
+                        `;
+                        return;
+                    }
+
+                    const row = `
+                        <tr>
+                            <td>${result.filename}</td>
+                            <td>
+                                <span class="score-indicator ${this.getScoreClass(result.globalScore)}">
+                                    ${result.globalScore}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge ${this.getVerdictBadgeClass(result.verdict)}">
+                                    ${result.verdict}
+                                </span>
+                            </td>
+                            <td>${this.calculateDimensionScore(result.methodology)}</td>
+                            <td>${this.calculateDimensionScore(result.reportingQuality)}</td>
+                            <td>${this.calculateDimensionScore(result.transparency)}</td>
+                            <td>${this.calculateDimensionScore(result.rigor)}</td>
+                            <td>${this.calculateDimensionScore(result.relevance)}</td>
+                            <td>${this.calculateDimensionScore(result.presentation)}</td>
+                            <td>${this.calculateDimensionScore(result.accessibility)}</td>
+                            <td>
+                                <button class="btn btn-sm btn-info" onclick="analyzer.showDetails(${index})">
+                                    <i class="fas fa-eye"></i> Detalles
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                    resultsBody.innerHTML += row;
+                });
+
+                this.createCharts();
+            }
+
+            calculateDimensionScore(dimension) {
+                const values = Object.values(dimension);
+                const trueCount = values.filter(v => v === true || (typeof v === 'number' && v > 0)).length;
+                const score = Math.round((trueCount / values.length) * 100);
+                return `<span class="score-indicator ${this.getScoreClass(score)}">${score}</span>`;
+            }
+
+            getScoreClass(score) {
+                if (score >= 80) return 'score-high';
+                if (score >= 60) return 'score-medium';
+                return 'score-low';
+            }
+
+            getVerdictBadgeClass(verdict) {
+                switch(verdict) {
+                    case 'Aprobado': return 'badge-success';
+                    case 'Revisión Requerida': return 'badge-warning';
+                    case 'Rechazar': return 'badge-danger';
+                    default: return 'badge-secondary';
+                }
+            }
+
+            createCharts() {
+                const validResults = this.results.filter(r => !r.error);
+                if (validResults.length === 0) return;
+
+                // Gráfico de puntuaciones
+                const scoresCtx = document.getElementById('scoresChart').getContext('2d');
+                new Chart(scoresCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: validResults.map(r => r.filename),
+                        datasets: [{
+                            label: 'Puntuación Global',
+                            data: validResults.map(r => r.globalScore),
+                            backgroundColor: validResults.map(r => 
+                                r.verdict === 'Aprobado' ? 'rgba(40, 167, 69, 0.7)' :
+                                r.verdict === 'Revisión Requerida' ? 'rgba(255, 193, 7, 0.7)' :
+                                'rgba(220, 53, 69, 0.7)'
+                            ),
+                            borderColor: validResults.map(r => 
+                                r.verdict === 'Aprobado' ? 'rgb(40, 167, 69)' :
+                                r.verdict === 'Revisión Requerida' ? 'rgb(255, 193, 7)' :
+                                'rgb(220, 53, 69)'
+                            ),
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                title: {
+                                    display: true,
+                                    text: 'Puntuación'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Puntuaciones Globales por Artículo'
+                            }
+                        }
+                    }
+                });
+
+                // Gráfico de veredictos
+                const verdictCounts = validResults.reduce((acc, result) => {
+                    acc[result.verdict] = (acc[result.verdict] || 0) + 1;
+                    return acc;
+                }, {});
+
+                const verdictCtx = document.getElementById('verdictChart').getContext('2d');
+                new Chart(verdictCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(verdictCounts),
+                        datasets: [{
+                            data: Object.values(verdictCounts),
+                            backgroundColor: [
+                                'rgba(40, 167, 69, 0.7)',
+                                'rgba(255, 193, 7, 0.7)',
+                                'rgba(220, 53, 69, 0.7)'
+                            ],
+                            borderColor: [
+                                'rgb(40, 167, 69)',
+                                'rgb(255, 193, 7)',
+                                'rgb(220, 53, 69)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            },
+                            title: {
+                                display: true,
+                                text: 'Distribución de Veredictos'
+                            }
+                        }
+                    }
+                });
+            }
+
+            showDetails(index) {
+                const result = this.results[index];
+                const detailsContainer = document.getElementById('detailsContainer');
+                
+                if (!detailsContainer) return;
+                
+                if (result.error) {
+                    detailsContainer.innerHTML = `<p class="text-danger">${result.error}</p>`;
+                    return;
+                }
+
+                const details = `
+                    <h6>${result.filename}</h6>
+                    <p><strong>Páginas:</strong> ${result.totalPages} | <strong>Caracteres:</strong> ${result.textLength}</p>
+                    <p><strong>Tipo de estudio:</strong> ${result.studyType.label} (${Math.round(result.studyType.probability * 100)}% de confianza)</p>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <h6>Metadatos</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>DOI:</strong> ${result.metadata.doi || 'No detectado'}</li>
+                                <li><strong>Registro:</strong> ${result.metadata.trialId || result.metadata.prospero || 'No detectado'}</li>
+                                <li><strong>ORCID:</strong> ${result.metadata.orcid || 'No detectado'}</li>
+                                <li><strong>Acceso abierto:</strong> ${result.metadata.openAccess ? 'Sí' : 'No'}</li>
+                                <li><strong>Aprobación ética:</strong> ${result.metadata.ethicsApproval ? 'Sí' : 'No'}</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Señales cuantitativas</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>P-valores:</strong> ${result.quantSignals.pvals}</li>
+                                <li><strong>Intervalos de confianza:</strong> ${result.quantSignals.cis}</li>
+                                <li><strong>Medidas de efecto:</strong> ${result.quantSignals.effects}</li>
+                                <li><strong>Tamaño muestral:</strong> ${result.methodology.sampleSize || 'No especificado'}</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <h6>Software y Métodos</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>Software detectado:</strong> ${result.software.join(', ') || 'Ninguno'}</li>
+                                <li><strong>Métodos estadísticos:</strong> ${result.stats.join(', ') || 'Ninguno'}</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Secciones detectadas</h6>
+                            <p>${result.sectionsFound.join(', ') || 'No se detectaron secciones claras'}</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <h6>Principales señales de calidad</h6>
+                        <ul>
+                            ${result.explanations.map(exp => `<li>${exp}</li>`).join('')}
+                        </ul>
+                    </div>
+
+                    <div class="mt-3">
+                        <h6>Análisis detallado por dimensión</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Metodología:</strong>
+                                <ul>
+                                    <li>Muestra: ${result.methodology.hasSample ? 'Sí' : 'No'}</li>
+                                    <li>Variables: ${result.methodology.hasVariables ? 'Sí' : 'No'}</li>
+                                    <li>Estadísticas: ${result.methodology.hasStats ? 'Sí' : 'No'}</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Calidad del reporte:</strong>
+                                <ul>
+                                    <li>IMRaD: ${result.reportingQuality.hasIMRaD ? 'Sí' : 'No'}</li>
+                                    <li>Resumen: ${result.reportingQuality.hasAbstract ? 'Sí' : 'No'}</li>
+                                    <li>Objetivos: ${result.reportingQuality.hasObjectives ? 'Sí' : 'No'}</li>
+                                    <li>Conclusiones: ${result.reportingQuality.hasConclusions ? 'Sí' : 'No'}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                detailsContainer.innerHTML = details;
+            }
+
+            exportResults() {
+                const exportData = this.results.map(result => {
+                    if (result.error) {
+                        return {
+                            'Archivo': result.filename,
+                            'Error': result.error
+                        };
+                    }
+
+                    return {
+                        'Archivo': result.filename,
+                        'Puntuación Global': result.globalScore,
+                        'Veredicto': result.verdict,
+                        'Tipo de Estudio': result.studyType.label,
+                        'Probabilidad Tipo (%)': Math.round(result.studyType.probability * 100),
+                        'Metodología': this.calculateDimensionScoreValue(result.methodology),
+                        'Calidad Reporte': this.calculateDimensionScoreValue(result.reportingQuality),
+                        'Transparencia': this.calculateDimensionScoreValue(result.transparency),
+                        'Rigor Científico': this.calculateDimensionScoreValue(result.rigor),
+                        'Relevancia': this.calculateDimensionScoreValue(result.relevance),
+                        'Presentación': this.calculateDimensionScoreValue(result.presentation),
+                        'Accesibilidad': this.calculateDimensionScoreValue(result.accessibility),
+                        'DOI': result.metadata.doi || '',
+                        'Registro': result.metadata.trialId || result.metadata.prospero || '',
+                        'Tamaño Muestral': result.methodology.sampleSize || '',
+                        'Páginas': result.totalPages,
+                        'Caracteres': result.textLength
+                    };
+                });
+
+                const worksheet = XLSX.utils.json_to_sheet(exportData);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'Resultados Análisis');
+                XLSX.writeFile(workbook, 'resultados_analisis_articulos.xlsx');
+            }
+
+            calculateDimensionScoreValue(dimension) {
+                const values = Object.values(dimension);
+                const trueCount = values.filter(v => v === true || (typeof v === 'number' && v > 0)).length;
+                return Math.round((trueCount / values.length) * 100);
+            }
+        }
+
+        // Inicializar la aplicación cuando se cargue la página
+        let analyzer;
+        document.addEventListener('DOMContentLoaded', function() {
+            analyzer = new ScientificArticleAnalyzer();
+        });
     </script>
 </body>
 </html>
