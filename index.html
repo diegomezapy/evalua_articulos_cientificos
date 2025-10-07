@@ -4,758 +4,100 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Evaluador de Calidad de Artículos Científicos</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root {
-            --primary: #4361ee;
-            --primary-dark: #3a56d4;
-            --secondary: #7209b7;
-            --success: #06d6a0;
-            --info: #118ab2;
-            --warning: #ffd166;
-            --danger: #ef476f;
-            --light: #f8f9fa;
-            --dark: #212529;
-            --gray: #6c757d;
-            --light-gray: #e9ecef;
-            --border-radius: 12px;
-            --shadow: 0 10px 20px rgba(0,0,0,0.08);
-            --transition: all 0.3s ease;
-        }
-        
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #e4edf5 100%);
-            color: var(--dark);
-            min-height: 100vh;
-            padding-bottom: 2rem;
-        }
-        
-        .navbar {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-            box-shadow: var(--shadow);
-            padding: 1rem 0;
-        }
-        
-        .navbar-brand {
-            font-weight: 700;
-            font-size: 1.5rem;
-            display: flex;
-            align-items: center;
-        }
-        
-        .navbar-brand i {
-            margin-right: 0.75rem;
-            font-size: 1.75rem;
-        }
-        
-        .card {
-            border: none;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            transition: var(--transition);
-            margin-bottom: 1.5rem;
-            overflow: hidden;
-        }
-        
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 30px rgba(0,0,0,0.12);
-        }
-        
-        .card-header {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-            color: white;
-            border: none;
-            padding: 1.25rem 1.5rem;
-            font-weight: 600;
-        }
-        
-        .card-body {
-            padding: 1.5rem;
-        }
-        
-        .btn {
-            border-radius: 8px;
-            font-weight: 500;
-            padding: 0.75rem 1.5rem;
-            transition: var(--transition);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .btn i {
-            margin-right: 0.5rem;
-        }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-            border: none;
-        }
-        
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(67, 97, 238, 0.4);
-        }
-        
-        .btn-success {
-            background: linear-gradient(135deg, var(--success) 0%, #05c290 100%);
-            border: none;
-        }
-        
-        .btn-success:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(6, 214, 160, 0.4);
-        }
-        
-        .form-control, .form-select {
-            border-radius: 8px;
-            padding: 0.75rem 1rem;
-            border: 1px solid var(--light-gray);
-            transition: var(--transition);
-        }
-        
-        .form-control:focus, .form-select:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 0.25rem rgba(67, 97, 238, 0.15);
-        }
-        
-        .progress {
-            height: 10px;
-            border-radius: 10px;
-            background-color: var(--light-gray);
-        }
-        
-        .progress-bar {
-            border-radius: 10px;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-        }
-        
-        .table {
-            border-radius: var(--border-radius);
-            overflow: hidden;
-            box-shadow: 0 0 0 1px var(--light-gray);
-        }
-        
-        .table thead th {
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            padding: 1rem;
-            font-weight: 600;
-        }
-        
-        .table tbody td {
-            padding: 1rem;
-            vertical-align: middle;
-            border-color: var(--light-gray);
-        }
-        
-        .table-hover tbody tr:hover {
-            background-color: rgba(67, 97, 238, 0.05);
-        }
-        
-        .badge {
-            padding: 0.5rem 0.75rem;
-            border-radius: 6px;
-            font-weight: 500;
-        }
-        
-        .threshold-control {
-            background: white;
-            border-radius: var(--border-radius);
-            padding: 1.5rem;
-            box-shadow: var(--shadow);
-        }
-        
-        .threshold-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary);
-            text-align: center;
-            margin: 0.5rem 0;
-        }
-        
-        .score-indicator {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            font-weight: 600;
-            color: white;
-        }
-        
-        .score-high {
-            background: linear-gradient(135deg, var(--success) 0%, #05c290 100%);
-        }
-        
-        .score-medium {
-            background: linear-gradient(135deg, var(--warning) 0%, #ffc043 100%);
-        }
-        
-        .score-low {
-            background: linear-gradient(135deg, var(--danger) 0%, #e63946 100%);
-        }
-        
-        .chart-container {
-            position: relative;
-            height: 300px;
-            margin-bottom: 1.5rem;
-        }
-        
-        .file-input-container {
-            position: relative;
-            overflow: hidden;
-            display: inline-block;
-            width: 100%;
-        }
-        
-        .file-input-container input[type=file] {
-            position: absolute;
-            left: 0;
-            top: 0;
-            opacity: 0;
-            width: 100%;
-            height: 100%;
-            cursor: pointer;
-        }
-        
-        .file-input-label {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 2rem;
-            border: 2px dashed var(--primary);
-            border-radius: var(--border-radius);
-            background-color: rgba(67, 97, 238, 0.05);
-            transition: var(--transition);
-            cursor: pointer;
-            text-align: center;
-        }
-        
-        .file-input-label:hover {
-            background-color: rgba(67, 97, 238, 0.1);
-        }
-        
-        .file-input-label i {
-            font-size: 3rem;
-            color: var(--primary);
-            margin-bottom: 1rem;
-        }
-        
-        .section-title {
-            font-weight: 600;
-            margin-bottom: 1.5rem;
-            color: var(--primary);
-            position: relative;
-            padding-bottom: 0.5rem;
-        }
-        
-        .section-title:after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 50px;
-            height: 3px;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-            border-radius: 3px;
-        }
-        
-        .details-panel {
-            background: white;
-            border-radius: var(--border-radius);
-            padding: 1.5rem;
-            box-shadow: var(--shadow);
-        }
-        
-        .metric-card {
-            background: white;
-            border-radius: var(--border-radius);
-            padding: 1.25rem;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-            transition: var(--transition);
-            height: 100%;
-        }
-        
-        .metric-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-        }
-        
-        .metric-value {
-            font-size: 2rem;
-            font-weight: 700;
-            margin: 0.5rem 0;
-        }
-        
-        .metric-title {
-            font-weight: 600;
-            color: var(--gray);
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        
-        @media (max-width: 768px) {
-            .card-body {
-                padding: 1rem;
-            }
-            
-            .table thead {
-                display: none;
-            }
-            
-            .table, .table tbody, .table tr, .table td {
-                display: block;
-                width: 100%;
-            }
-            
-            .table tr {
-                margin-bottom: 1rem;
-                border-radius: var(--border-radius);
-                box-shadow: 0 0 10px rgba(0,0,0,0.05);
-                overflow: hidden;
-            }
-            
-            .table td {
-                text-align: right;
-                padding-left: 50%;
-                position: relative;
-                border-bottom: 1px solid var(--light-gray);
-            }
-            
-            .table td:before {
-                content: attr(data-label);
-                position: absolute;
-                left: 1rem;
-                width: calc(50% - 1rem);
-                padding-right: 10px;
-                font-weight: 600;
-                text-align: left;
-            }
-        }
+        /* Estilos personalizados aquí */
+        .score-cell { padding: 5px 10px; border-radius: 4px; color: white; }
+        .score-high { background-color: #28a745; }
+        .score-medium { background-color: #ffc107; color: black; }
+        .score-low { background-color: #dc3545; }
+        .verdict-approved { color: #28a745; font-weight: bold; }
+        .verdict-review { color: #ffc107; font-weight: bold; }
+        .verdict-reject { color: #dc3545; font-weight: bold; }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark">
-        <div class="container">
-            <a class="navbar-brand" href="#">
-                <i class="fas fa-microscope"></i>
-                ScientificQuality AI
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link active" href="#"><i class="fas fa-home me-1"></i> Inicio</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#"><i class="fas fa-history me-1"></i> Historial</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#"><i class="fas fa-cog me-1"></i> Configuración</a>
-                    </li>
-                </ul>
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">Evaluador de Calidad de Artículos Científicos</h1>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Cargar Artículos PDF</h5>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label for="pdfFiles">Seleccionar archivos PDF:</label>
+                    <input type="file" id="pdfFiles" class="form-control-file" multiple accept=".pdf">
+                </div>
+                <button id="analyzeBtn" class="btn btn-primary mt-3">Analizar Artículos</button>
+                <div id="progressContainer" class="mt-3" style="display: none;">
+                    <div class="progress">
+                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <p id="progressText" class="text-center mt-2">Procesando: <span id="currentFile"></span></p>
+                </div>
             </div>
         </div>
-    </nav>
-
-    <div class="container mt-4">
-        <div class="row">
-            <div class="col-lg-8">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <span><i class="fas fa-file-upload me-2"></i> Cargar Artículos PDF</span>
-                        <span class="badge bg-light text-dark">Beta</span>
-                    </div>
-                    <div class="card-body">
-                        <div class="file-input-container mb-4">
-                            <input type="file" id="pdfFiles" class="form-control-file" multiple accept=".pdf">
-                            <label for="pdfFiles" class="file-input-label">
-                                <i class="fas fa-cloud-upload-alt"></i>
-                                <h5>Arrastra tus archivos PDF aquí o haz clic para seleccionar</h5>
-                                <p class="text-muted">Puedes seleccionar múltiples archivos a la vez</p>
-                            </label>
-                        </div>
-                        
-                        <div class="threshold-control mb-4">
-                            <h5 class="section-title">Umbral de Clasificación</h5>
-                            <p class="text-muted mb-3">Ajusta el valor límite para determinar la clasificación de calidad de los artículos.</p>
-                            
-                            <div class="row align-items-center">
-                                <div class="col-md-8">
-                                    <label for="thresholdRange" class="form-label">
-                                        Valor del umbral: <span id="thresholdValue" class="threshold-value">70</span> puntos
-                                    </label>
-                                    <input type="range" class="form-range" id="thresholdRange" min="0" max="100" value="70" step="1">
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="d-grid gap-2">
-                                        <button type="button" class="btn btn-outline-primary" id="applyThreshold">
-                                            <i class="fas fa-sync-alt me-2"></i> Aplicar Cambios
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="row mt-3 text-center">
-                                <div class="col-4">
-                                    <div class="metric-card">
-                                        <div class="metric-title">Baja Calidad</div>
-                                        <div class="metric-value text-danger">0-49</div>
-                                        <small class="text-muted">Requiere revisión</small>
-                                    </div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="metric-card">
-                                        <div class="metric-title">Calidad Media</div>
-                                        <div class="metric-value text-warning">50-79</div>
-                                        <small class="text-muted">Aceptable con reservas</small>
-                                    </div>
-                                </div>
-                                <div class="col-4">
-                                    <div class="metric-card">
-                                        <div class="metric-title">Alta Calidad</div>
-                                        <div class="metric-value text-success">80-100</div>
-                                        <small class="text-muted">Cumple estándares</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="d-grid">
-                            <button id="analyzeBtn" class="btn btn-primary btn-lg">
-                                <i class="fas fa-chart-line me-2"></i> Analizar Artículos
-                            </button>
-                        </div>
-                        
-                        <div id="progressContainer" class="mt-4" style="display: none;">
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Progreso del análisis</span>
-                                <span id="progressPercent">0%</span>
-                            </div>
-                            <div class="progress mb-3">
-                                <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
-                            </div>
-                            <p id="progressText" class="text-center">
-                                <i class="fas fa-file-alt me-2"></i>
-                                Procesando: <span id="currentFile" class="fw-bold">archivo.pdf</span>
-                            </p>
-                        </div>
-                    </div>
+        
+        <div id="resultsContainer" style="display: none;">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5>Resultados del Análisis</h5>
+                    <button id="exportBtn" class="btn btn-success">Exportar Resultados (Excel)</button>
                 </div>
-                
-                <div id="resultsContainer" style="display: none;">
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <span><i class="fas fa-chart-bar me-2"></i> Resultados del Análisis</span>
-                            <button id="exportBtn" class="btn btn-success">
-                                <i class="fas fa-file-excel me-2"></i> Exportar a Excel
-                            </button>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <canvas id="scoresChart"></canvas>
                         </div>
-                        <div class="card-body">
-                            <div class="row mb-4">
-                                <div class="col-md-6">
-                                    <div class="chart-container">
-                                        <canvas id="scoresChart"></canvas>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="chart-container">
-                                        <canvas id="verdictChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <h5 class="section-title">Resumen de Evaluación</h5>
-                            <div class="table-responsive">
-                                <table id="resultsTable" class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Artículo</th>
-                                            <th>Puntuación</th>
-                                            <th>Clasificación</th>
-                                            <th>Metodología</th>
-                                            <th>Reporte</th>
-                                            <th>Transparencia</th>
-                                            <th>Rigor</th>
-                                            <th>Relevancia</th>
-                                            <th>Presentación</th>
-                                            <th>Accesibilidad</th>
-                                            <th>Acciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="resultsBody">
-                                        <!-- Los resultados se insertarán aquí dinámicamente -->
-                                    </tbody>
-                                </table>
-                            </div>
+                        <div class="col-md-6">
+                            <canvas id="verdictChart"></canvas>
                         </div>
+                    </div>
+                    
+                    <div class="table-responsive mt-4">
+                        <table id="resultsTable" class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Archivo</th>
+                                    <th>Puntuación Global</th>
+                                    <th>Veredicto</th>
+                                    <th>Metodología</th>
+                                    <th>Calidad Reporte</th>
+                                    <th>Transparencia</th>
+                                    <th>Rigor Científico</th>
+                                    <th>Relevancia</th>
+                                    <th>Presentación</th>
+                                    <th>Accesibilidad</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsBody">
+                                <!-- Los resultados se insertarán aquí dinámicamente -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
             
-            <div class="col-lg-4">
-                <div class="card">
-                    <div class="card-header">
-                        <i class="fas fa-info-circle me-2"></i> Detalles del Artículo
-                    </div>
-                    <div class="card-body" id="detailsContainer">
-                        <div class="text-center py-5 text-muted">
-                            <i class="fas fa-file-medical fa-3x mb-3"></i>
-                            <p>Selecciona un artículo de la tabla para ver los detalles completos de la evaluación.</p>
-                        </div>
-                    </div>
+            <div class="card">
+                <div class="card-header">
+                    <h5>Detalles del Artículo Seleccionado</h5>
                 </div>
-                
-                <div class="card mt-4">
-                    <div class="card-header">
-                        <i class="fas fa-tachometer-alt me-2"></i> Métricas de Calidad
-                    </div>
-                    <div class="card-body">
-                        <div class="row text-center">
-                            <div class="col-6 mb-3">
-                                <div class="metric-card">
-                                    <div class="metric-title">Artículos Evaluados</div>
-                                    <div class="metric-value text-primary" id="totalArticles">0</div>
-                                </div>
-                            </div>
-                            <div class="col-6 mb-3">
-                                <div class="metric-card">
-                                    <div class="metric-title">Calidad Promedio</div>
-                                    <div class="metric-value text-info" id="avgQuality">0</div>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="metric-card">
-                                    <div class="metric-title">Alta Calidad</div>
-                                    <div class="metric-value text-success" id="highQuality">0</div>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="metric-card">
-                                    <div class="metric-title">Baja Calidad</div>
-                                    <div class="metric-value text-danger" id="lowQuality">0</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <div class="card-body" id="detailsContainer">
+                    <p>Seleccione un artículo de la tabla para ver detalles.</p>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Actualizar el valor del umbral cuando se mueve el control deslizante
-        document.getElementById('thresholdRange').addEventListener('input', function() {
-            document.getElementById('thresholdValue').textContent = this.value;
-        });
-        
-        // Simulación de análisis de artículos (para propósitos de demostración)
-        document.getElementById('analyzeBtn').addEventListener('click', function() {
-            const progressContainer = document.getElementById('progressContainer');
-            const progressBar = document.getElementById('progressBar');
-            const progressPercent = document.getElementById('progressPercent');
-            const progressText = document.getElementById('progressText');
-            const currentFile = document.getElementById('currentFile');
-            const resultsContainer = document.getElementById('resultsContainer');
-            
-            progressContainer.style.display = 'block';
-            
-            let progress = 0;
-            const interval = setInterval(() => {
-                progress += 5;
-                progressBar.style.width = `${progress}%`;
-                progressPercent.textContent = `${progress}%`;
-                
-                if (progress === 25) {
-                    currentFile.textContent = "estudio_clinico_2023.pdf";
-                } else if (progress === 50) {
-                    currentFile.textContent = "revision_sistematica.pdf";
-                } else if (progress === 75) {
-                    currentFile.textContent = "metanalisis_ensayos.pdf";
-                }
-                
-                if (progress >= 100) {
-                    clearInterval(interval);
-                    progressText.innerHTML = '<i class="fas fa-check-circle text-success me-2"></i>Análisis completado';
-                    resultsContainer.style.display = 'block';
-                    
-                    // Actualizar métricas
-                    document.getElementById('totalArticles').textContent = '12';
-                    document.getElementById('avgQuality').textContent = '76.2';
-                    document.getElementById('highQuality').textContent = '7';
-                    document.getElementById('lowQuality').textContent = '2';
-                    
-                    // Simular resultados de tabla
-                    simulateResults();
-                }
-            }, 200);
-        });
-        
-        // Función para simular resultados (solo para demostración)
-        function simulateResults() {
-            const resultsBody = document.getElementById('resultsBody');
-            const articles = [
-                { name: "estudio_clinico_2023.pdf", score: 85, methodology: 88, reporting: 82, transparency: 90, rigor: 84, relevance: 80, presentation: 87, accessibility: 89 },
-                { name: "revision_sistematica.pdf", score: 92, methodology: 95, reporting: 90, transparency: 93, rigor: 94, relevance: 88, presentation: 91, accessibility: 90 },
-                { name: "metanalisis_ensayos.pdf", score: 78, methodology: 75, reporting: 80, transparency: 72, rigor: 79, relevance: 82, presentation: 76, accessibility: 81 },
-                { name: "estudio_observacional.pdf", score: 65, methodology: 62, reporting: 68, transparency: 60, rigor: 64, relevance: 70, presentation: 66, accessibility: 63 },
-                { name: "ensayo_controlado.pdf", score: 88, methodology: 90, reporting: 85, transparency: 89, rigor: 87, relevance: 84, presentation: 86, accessibility: 91 }
-            ];
-            
-            resultsBody.innerHTML = '';
-            
-            articles.forEach(article => {
-                const classification = article.score >= 80 ? 'Alta Calidad' : 
-                                      article.score >= 60 ? 'Calidad Media' : 'Baja Calidad';
-                
-                const scoreClass = article.score >= 80 ? 'score-high' : 
-                                 article.score >= 60 ? 'score-medium' : 'score-low';
-                
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td data-label="Artículo">${article.name}</td>
-                    <td data-label="Puntuación">
-                        <div class="score-indicator ${scoreClass}">${article.score}</div>
-                    </td>
-                    <td data-label="Clasificación">
-                        <span class="badge ${classification === 'Alta Calidad' ? 'bg-success' : 
-                                         classification === 'Calidad Media' ? 'bg-warning' : 'bg-danger'}">
-                            ${classification}
-                        </span>
-                    </td>
-                    <td data-label="Metodología">${article.methodology}</td>
-                    <td data-label="Reporte">${article.reporting}</td>
-                    <td data-label="Transparencia">${article.transparency}</td>
-                    <td data-label="Rigor">${article.rigor}</td>
-                    <td data-label="Relevancia">${article.relevance}</td>
-                    <td data-label="Presentación">${article.presentation}</td>
-                    <td data-label="Accesibilidad">${article.accessibility}</td>
-                    <td data-label="Acciones">
-                        <button class="btn btn-sm btn-outline-primary">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    </td>
-                `;
-                resultsBody.appendChild(row);
-            });
-            
-            // Inicializar gráficos (simulación)
-            initializeCharts();
-        }
-        
-        // Inicializar gráficos (simulación)
-        function initializeCharts() {
-            // Gráfico de puntuaciones
-            const scoresCtx = document.getElementById('scoresChart').getContext('2d');
-            new Chart(scoresCtx, {
-                type: 'bar',
-                data: {
-                    labels: ['Metodología', 'Reporte', 'Transparencia', 'Rigor', 'Relevancia', 'Presentación', 'Accesibilidad'],
-                    datasets: [{
-                        label: 'Puntuación Promedio',
-                        data: [82, 78, 85, 80, 76, 79, 83],
-                        backgroundColor: [
-                            'rgba(67, 97, 238, 0.7)',
-                            'rgba(114, 9, 183, 0.7)',
-                            'rgba(6, 214, 160, 0.7)',
-                            'rgba(17, 138, 178, 0.7)',
-                            'rgba(255, 209, 102, 0.7)',
-                            'rgba(239, 71, 111, 0.7)',
-                            'rgba(108, 117, 125, 0.7)'
-                        ],
-                        borderColor: [
-                            'rgba(67, 97, 238, 1)',
-                            'rgba(114, 9, 183, 1)',
-                            'rgba(6, 214, 160, 1)',
-                            'rgba(17, 138, 178, 1)',
-                            'rgba(255, 209, 102, 1)',
-                            'rgba(239, 71, 111, 1)',
-                            'rgba(108, 117, 125, 1)'
-                        ],
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 100,
-                            ticks: {
-                                callback: function(value) {
-                                    return value + '%';
-                                }
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `Puntuación: ${context.parsed.y}%`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-            
-            // Gráfico de veredictos
-            const verdictCtx = document.getElementById('verdictChart').getContext('2d');
-            new Chart(verdictCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Alta Calidad', 'Calidad Media', 'Baja Calidad'],
-                    datasets: [{
-                        data: [7, 3, 2],
-                        backgroundColor: [
-                            'rgba(6, 214, 160, 0.7)',
-                            'rgba(255, 209, 102, 0.7)',
-                            'rgba(239, 71, 111, 0.7)'
-                        ],
-                        borderColor: [
-                            'rgba(6, 214, 160, 1)',
-                            'rgba(255, 209, 102, 1)',
-                            'rgba(239, 71, 111, 1)'
-                        ],
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom'
-                        }
-                    }
-                }
-            });
-        }
-        
-        // Inicializar la aplicación cuando se carga la página
-        document.addEventListener('DOMContentLoaded', function() {
-            // Aquí se puede inicializar cualquier funcionalidad adicional
-        });
+        // Código JavaScript para el análisis de artículos
+        // ... (Aquí va el código completo de ScientificArticleAnalyzer y dependencias)
     </script>
 </body>
 </html>
