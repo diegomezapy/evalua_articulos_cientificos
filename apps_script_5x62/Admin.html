@@ -52,7 +52,7 @@
       <section class="card admin-section">
         <div class="section-head"><h2>Avance por estadístico</h2><span class="muted small">Cada lote debe cerrar en 62/62</span></div>
         <table>
-          <thead><tr><th>Revisor</th><th>Participación</th><th class="num">Asignados</th><th class="num">Finalizados</th><th class="num">Borradores</th><th class="num">Pendientes</th><th class="num">Avance</th></tr></thead>
+          <thead><tr><th>Revisor</th><th>Participación</th><th>Nombre</th><th>Correo Google</th><th>Institución</th><th>Especialidad</th><th>Acceso PDF</th><th class="num">Asignados</th><th class="num">Finalizados</th><th class="num">Borradores</th><th class="num">Pendientes</th><th class="num">Avance</th></tr></thead>
           <tbody id="progress-body"></tbody>
         </table>
       </section>
@@ -67,7 +67,7 @@
 
       <section class="card admin-section">
         <h2>Enlaces de invitación</h2>
-        <p class="muted">Envíe a cada persona únicamente su enlace y su código de acceso. No adjunte el manifiesto administrativo ni resultados de IA.</p>
+        <p class="muted">Envíe a cada persona únicamente su enlace y su código. En el primer acceso registrará sus propios datos, aceptará el protocolo y recibirá acceso al lote correspondiente. No adjunte el manifiesto administrativo ni resultados de IA.</p>
         <div id="invite-links" class="stack"></div>
       </section>
 
@@ -122,6 +122,9 @@
         const row = document.createElement('tr');
         row.append(
           cell(item.reviewer_label), cell(item.participacion_aceptada ? 'Aceptada' : 'Sin respuesta'),
+          cell(item.nombre_completo || '—'), cell(item.correo_google || '—'),
+          cell(item.institucion || '—'), cell(item.especialidad || '—'),
+          cell(item.pdf_access_status === 'GRANTED' ? 'Habilitado' : 'Pendiente'),
           cell(item.asignados, 'num'), cell(item.finalizados, 'num'),
           cell(item.borradores, 'num'), cell(item.pendientes, 'num'),
           cell(`${(item.finalizados / item.asignados * 100).toFixed(1)} %`, 'num')

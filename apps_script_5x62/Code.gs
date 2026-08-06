@@ -15,6 +15,8 @@ const R5X62 = Object.freeze({
   SHEET_PROP: 'R5X62_SHEET_ID',
   CSV_PROP: 'R5X62_ASSIGNMENTS_CSV_FILE_ID',
   FOLDER_PROP: 'R5X62_PDF_FOLDER_ID',
+  LOT_ROOT_FOLDER_PROP: 'R5X62_LOT_ROOT_FOLDER_ID',
+  REVIEWER_FOLDER_PROP_PREFIX: 'R5X62_REVIEWER_FOLDER_',
   ADMIN_HASH_PROP: 'R5X62_ADMIN_HASH',
   REVIEWER_HASH_PREFIX: 'R5X62_REVIEWER_HASH_',
   PRIVATE_CREDENTIALS: 'credenciales_privadas',
@@ -48,6 +50,8 @@ const AUDIT_HEADERS = [
 
 const PARTICIPANT_HEADERS = [
   'accepted_at', 'reviewer_id', 'reviewer_label', 'protocol_version',
+  'nombre_completo', 'correo_google', 'institucion', 'pais',
+  'especialidad', 'orcid', 'pdf_access_status', 'pdf_access_count',
 ];
 
 const VALID_VALUES = Object.freeze({
@@ -163,9 +167,18 @@ function rotarCredencialesDesdeEditor() {
 }
 
 
+function prepararLotesDesdeEditor() {
+  _assertOwnerEditor_();
+  const result = _prepareReviewerFolders_();
+  Logger.log(JSON.stringify(result));
+  return result;
+}
+
+
 function validarDespliegueDesdeEditor() {
   _assertOwnerEditor_();
   const ss = _spreadsheet_();
+  _ensureParticipantSchema_(ss.getSheetByName(R5X62.PARTICIPANTS));
   const credentialSheet = ss.getSheetByName(R5X62.PRIVATE_CREDENTIALS);
   const invitationSheet = ss.getSheetByName(R5X62.PRIVATE_INVITATIONS);
   if (!credentialSheet || !invitationSheet) {
@@ -213,6 +226,7 @@ function validarDespliegueDesdeEditor() {
     unique_cases: uniqueCases,
     common_cases: commonCases,
     private_sheets_hidden: credentialSheet.isSheetHidden() && invitationSheet.isSheetHidden(),
+    reviewer_folders: _reviewerFolderStatus_(),
   };
   Logger.log(JSON.stringify(result));
   return result;
@@ -275,8 +289,6 @@ function _storePrivateAccessSheets_(credentials) {
   }));
   const invitationRows = reviewerRecords.map(function (record) {
     const message = [
-      'DESTINATARIO: [NOMBRE DEL ESTADÍSTICO]',
-      'CORREO GOOGLE AUTORIZADO: [CORREO]',
       'FECHA LÍMITE: [AAAA-MM-DD]',
       '',
       'Hola. Le invito a participar como revisor/a estadístico/a independiente',
@@ -286,7 +298,10 @@ function _storePrivateAccessSheets_(credentials) {
       'Código privado: ' + record.access_code,
       'Aplicación: ' + record.invitation_url,
       '',
-      'Ingrese con el seudónimo y el código, acepte el protocolo y evalúe cada PDF.',
+      'En el primer acceso, ingrese el seudónimo y el código. Luego complete sus',
+      'datos, declare el correo de su cuenta Google y acepte el protocolo.',
+      'La aplicación registrará su participación y habilitará su lote privado.',
+      '',
       'Puede guardar borradores. Use “Enviar evaluación final” únicamente cuando',
       'la revisión esté completa, porque el registro quedará bloqueado.',
       '',
@@ -324,27 +339,183 @@ function _writePrivateSheet_(ss, sheetName, headers, rows) {
 }
 
 
-function startParticipation(reviewerId, accessCode, accepted) {
+function _prepareReviewerFolders_() {
+  const props = PropertiesService.getScriptProperties();
+  const master = DriveApp.getFolderById(_requiredProperty_(props, R5X62.FOLDER_PROP));
+  const lotRoot = _getOrCreateChildFolder_(master, 'LOTES_REVISORES');
+  const commonMasters = _getOrCreateChildFolder_(master, 'COMUNES_MAESTROS_PRIVADOS');
+  props.setProperty(R5X62.LOT_ROOT_FOLDER_PROP, lotRoot.getId());
+  const folders = {};
+  R5X62.REVIEWERS.forEach(function (reviewer) {
+    const folder = _getOrCreateChildFolder_(lotRoot, reviewer);
+    folders[reviewer] = folder;
+    props.setProperty(R5X62.REVIEWER_FOLDER_PROP_PREFIX + reviewer, folder.getId());
+  });
+
+  const ss = _spreadsheet_();
+  const sheet = ss.getSheetByName(R5X62.ASSIGNMENTS);
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0].map(String);
+  const index = _headerIndex_(headers);
+  const originalCommonIds = {};
+  let updatedLinks = 0;
+  let movedExclusive = 0;
+  let copiedCommon = 0;
+
+  values.slice(1).forEach(function (row) {
+    const reviewer = String(row[index.reviewer_id]);
+    const target = folders[reviewer];
+    if (!target) throw new Error('No existe carpeta para ' + reviewer + '.');
+    const fileId = String(row[index.pdf_file_id]);
+    const fileName = String(row[index.pdf_file_name]);
+    const file = DriveApp.getFileById(fileId);
+    if (_asBool_(row[index.es_comun])) {
+      if (_fileIsInFolder_(file, target.getId())) return;
+      originalCommonIds[fileId] = true;
+      const matches = target.getFilesByName(fileName);
+      let assignedFile;
+      if (matches.hasNext()) {
+        assignedFile = matches.next();
+        if (matches.hasNext()) throw new Error('PDF común duplicado en ' + reviewer + ': ' + fileName);
+      } else {
+        assignedFile = file.makeCopy(fileName, target);
+        copiedCommon += 1;
+      }
+      row[index.pdf_file_id] = assignedFile.getId();
+      row[index.pdf_preview_url] = 'https://drive.google.com/file/d/' + assignedFile.getId() + '/preview';
+      updatedLinks += 1;
+    } else if (!_fileIsInFolder_(file, target.getId())) {
+      file.moveTo(target);
+      movedExclusive += 1;
+    }
+  });
+
+  Object.keys(originalCommonIds).forEach(function (fileId) {
+    const file = DriveApp.getFileById(fileId);
+    if (!_fileIsInFolder_(file, commonMasters.getId())) file.moveTo(commonMasters);
+  });
+  if (updatedLinks) {
+    sheet.getRange(2, 1, values.length - 1, headers.length).setValues(values.slice(1));
+  }
+  const status = _reviewerFolderStatus_();
+  status.forEach(function (item) {
+    if (!item.ready) throw new Error(item.reviewer_id + ' no contiene exactamente 62 PDF.');
+  });
+  return {
+    ok: true,
+    lot_root_folder_id: lotRoot.getId(),
+    moved_exclusive: movedExclusive,
+    copied_common: copiedCommon,
+    updated_common_links: updatedLinks,
+    reviewer_folders: status,
+  };
+}
+
+
+function _reviewerFolderStatus_() {
+  const props = PropertiesService.getScriptProperties();
+  return R5X62.REVIEWERS.map(function (reviewer) {
+    const folderId = String(props.getProperty(R5X62.REVIEWER_FOLDER_PROP_PREFIX + reviewer) || '');
+    if (!folderId) return { reviewer_id: reviewer, folder_configured: false, pdf_count: 0, ready: false };
+    const count = _countFiles_(DriveApp.getFolderById(folderId));
+    return { reviewer_id: reviewer, folder_configured: true, pdf_count: count, ready: count === 62 };
+  });
+}
+
+
+function _grantReviewerFolderAccess_(reviewerId, email) {
+  const props = PropertiesService.getScriptProperties();
+  const folderId = _requiredProperty_(props, R5X62.REVIEWER_FOLDER_PROP_PREFIX + reviewerId);
+  const folder = DriveApp.getFolderById(folderId);
+  const count = _countFiles_(folder);
+  if (count !== 62) throw new Error('El lote de PDF no está preparado: ' + count + '/62.');
+  folder.addViewer(email);
+  return count;
+}
+
+
+function _getOrCreateChildFolder_(parent, name) {
+  const matches = parent.getFoldersByName(name);
+  if (!matches.hasNext()) return parent.createFolder(name);
+  const folder = matches.next();
+  if (matches.hasNext()) throw new Error('Carpeta duplicada: ' + name);
+  return folder;
+}
+
+
+function _fileIsInFolder_(file, folderId) {
+  const parents = file.getParents();
+  while (parents.hasNext()) {
+    if (parents.next().getId() === folderId) return true;
+  }
+  return false;
+}
+
+
+function _countFiles_(folder) {
+  let count = 0;
+  const files = folder.getFiles();
+  while (files.hasNext()) {
+    files.next();
+    count += 1;
+  }
+  return count;
+}
+
+
+function getAccessStatus(reviewerId, accessCode) {
+  reviewerId = String(reviewerId || '').trim().toUpperCase();
+  _authenticateReviewer_(reviewerId, accessCode);
+  const ss = _spreadsheet_();
+  const participant = _participantByReviewer_(ss, reviewerId);
+  return {
+    reviewer_id: reviewerId,
+    reviewer_label: _reviewerLabel_(reviewerId),
+    registered: Boolean(participant),
+  };
+}
+
+
+function registerParticipation(reviewerId, accessCode, profile, accepted) {
   reviewerId = String(reviewerId || '').trim().toUpperCase();
   _authenticateReviewer_(reviewerId, accessCode);
   if (accepted !== true) {
     throw new Error('Debe confirmar que acepta participar bajo el protocolo de revisión.');
   }
+  const clean = _validateParticipantProfile_(profile);
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
     const ss = _spreadsheet_();
     const sheet = ss.getSheetByName(R5X62.PARTICIPANTS);
-    const alreadyAccepted = _readObjects_(sheet).some(function (row) {
-      return String(row.reviewer_id) === reviewerId;
-    });
-    if (!alreadyAccepted) {
-      const now = new Date();
-      sheet.appendRow([now, reviewerId, _reviewerLabel_(reviewerId), 'REVISION_MUESTRAL_270_V1']);
-      ss.getSheetByName(R5X62.AUDIT).appendRow([
-        now, 'ACCEPT_PARTICIPATION', reviewerId, '', '', '', 1,
-      ]);
+    _ensureParticipantSchema_(sheet);
+    if (_participantByReviewer_(ss, reviewerId)) {
+      throw new Error('Este cupo ya fue registrado. Ingrese normalmente con su seudónimo y código.');
     }
+    const emailAlreadyUsed = _readObjects_(sheet).some(function (row) {
+      return String(row.correo_google || '').toLowerCase() === clean.correo_google;
+    });
+    if (emailAlreadyUsed) throw new Error('Este correo ya está asociado a otro revisor.');
+    const granted = _grantReviewerFolderAccess_(reviewerId, clean.correo_google);
+    const now = new Date();
+    const record = {
+      accepted_at: now,
+      reviewer_id: reviewerId,
+      reviewer_label: _reviewerLabel_(reviewerId),
+      protocol_version: 'REVISION_MUESTRAL_270_V2',
+      nombre_completo: clean.nombre_completo,
+      correo_google: clean.correo_google,
+      institucion: clean.institucion,
+      pais: clean.pais,
+      especialidad: clean.especialidad,
+      orcid: clean.orcid,
+      pdf_access_status: 'GRANTED',
+      pdf_access_count: granted,
+    };
+    sheet.appendRow(PARTICIPANT_HEADERS.map(function (header) { return record[header]; }));
+    ss.getSheetByName(R5X62.AUDIT).appendRow([
+      now, 'REGISTER_PARTICIPATION', reviewerId, '', '', 'ACCEPTED', 2,
+    ]);
   } finally {
     lock.releaseLock();
   }
@@ -352,13 +523,31 @@ function startParticipation(reviewerId, accessCode, accepted) {
 }
 
 
+function _participantByReviewer_(ss, reviewerId) {
+  return _readObjects_(ss.getSheetByName(R5X62.PARTICIPANTS)).find(function (row) {
+    return String(row.reviewer_id) === reviewerId;
+  }) || null;
+}
+
+
+function _ensureParticipantSchema_(sheet) {
+  const current = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn()))
+    .getValues()[0].map(String).filter(Boolean);
+  PARTICIPANT_HEADERS.forEach(function (header, index) {
+    if (current[index] && current[index] !== header) {
+      throw new Error('Esquema inesperado en participantes, columna ' + (index + 1) + '.');
+    }
+  });
+  sheet.getRange(1, 1, 1, PARTICIPANT_HEADERS.length).setValues([PARTICIPANT_HEADERS]);
+  sheet.setFrozenRows(1);
+}
+
+
 function getReviewerState(reviewerId, accessCode) {
   reviewerId = String(reviewerId || '').trim().toUpperCase();
   _authenticateReviewer_(reviewerId, accessCode);
   const ss = _spreadsheet_();
-  const participant = _readObjects_(ss.getSheetByName(R5X62.PARTICIPANTS)).find(function (row) {
-    return String(row.reviewer_id) === reviewerId;
-  });
+  const participant = _participantByReviewer_(ss, reviewerId);
   if (!participant) throw new Error('Primero debe aceptar la invitación de participación.');
   const assignments = _readObjects_(ss.getSheetByName(R5X62.ASSIGNMENTS))
     .filter(function (row) { return String(row.reviewer_id) === reviewerId; })
@@ -480,6 +669,12 @@ function getAdminDashboard(adminCode) {
       reviewer_id: reviewer,
       reviewer_label: _reviewerLabel_(reviewer),
       participacion_aceptada: Boolean(participants[reviewer]),
+      nombre_completo: String((participants[reviewer] && participants[reviewer].nombre_completo) || ''),
+      correo_google: String((participants[reviewer] && participants[reviewer].correo_google) || ''),
+      institucion: String((participants[reviewer] && participants[reviewer].institucion) || ''),
+      pais: String((participants[reviewer] && participants[reviewer].pais) || ''),
+      especialidad: String((participants[reviewer] && participants[reviewer].especialidad) || ''),
+      pdf_access_status: String((participants[reviewer] && participants[reviewer].pdf_access_status) || ''),
       aceptada_en: participants[reviewer] && participants[reviewer].accepted_at instanceof Date
         ? participants[reviewer].accepted_at.toISOString()
         : '',
@@ -549,7 +744,8 @@ function getAdminExport(adminCode) {
   });
   const fields = [
     'assignment_id', 'reviewer_id', 'reviewer_label', 'participacion_aceptada',
-    'aceptada_en', 'review_order', 'case_code', 'openalex_work_id',
+    'aceptada_en', 'nombre_completo', 'correo_google', 'institucion', 'pais_revisor',
+    'especialidad', 'orcid', 'pdf_access_status', 'review_order', 'case_code', 'openalex_work_id',
     'titulo', 'anio', 'macroarea', 'revista', 'doi', 'es_comun',
   ].concat(EVALUATION_HEADERS.filter(function (header) {
     return ['assignment_id', 'reviewer_id', 'case_code'].indexOf(header) === -1;
@@ -567,6 +763,13 @@ function getAdminExport(adminCode) {
     merged.aceptada_en = participant && participant.accepted_at instanceof Date
       ? participant.accepted_at.toISOString()
       : '';
+    merged.nombre_completo = participant ? String(participant.nombre_completo || '') : '';
+    merged.correo_google = participant ? String(participant.correo_google || '') : '';
+    merged.institucion = participant ? String(participant.institucion || '') : '';
+    merged.pais_revisor = participant ? String(participant.pais || '') : '';
+    merged.especialidad = participant ? String(participant.especialidad || '') : '';
+    merged.orcid = participant ? String(participant.orcid || '') : '';
+    merged.pdf_access_status = participant ? String(participant.pdf_access_status || '') : '';
     return merged;
   });
   return { fields: fields, rows: rows };
@@ -656,6 +859,32 @@ function _validateEvaluation_(payload) {
     if (clean.estudio_muestral === 'SI' && (!clean.unidad_observada || !clean.tamano_muestral)) {
       throw new Error('Para un estudio muestral indique unidad observada y tamaño muestral o "No reportado".');
     }
+  }
+  return clean;
+}
+
+
+function _validateParticipantProfile_(profile) {
+  if (!profile || typeof profile !== 'object') throw new Error('Faltan los datos del participante.');
+  const email = _cleanText_(profile.correo_google, 254).toLowerCase();
+  const confirmation = _cleanText_(profile.confirmar_correo, 254).toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error('Ingrese un correo Google válido.');
+  }
+  if (email !== confirmation) throw new Error('La confirmación del correo no coincide.');
+  const clean = {
+    nombre_completo: _cleanText_(profile.nombre_completo, 200),
+    correo_google: email,
+    institucion: _cleanText_(profile.institucion, 250),
+    pais: _cleanText_(profile.pais, 120),
+    especialidad: _cleanText_(profile.especialidad, 250),
+    orcid: _cleanText_(profile.orcid, 40),
+  };
+  ['nombre_completo', 'institucion', 'especialidad'].forEach(function (field) {
+    if (!clean[field]) throw new Error('Falta completar: ' + field + '.');
+  });
+  if (clean.orcid && !/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/i.test(clean.orcid)) {
+    throw new Error('El ORCID debe tener el formato 0000-0000-0000-0000.');
   }
   return clean;
 }
@@ -829,8 +1058,9 @@ function _cleanChoice_(value, field) {
 
 
 function _cleanText_(value, maxLength) {
-  const clean = String(value || '').trim();
+  let clean = String(value || '').trim();
   if (clean.length > maxLength) throw new Error('Texto demasiado largo; máximo ' + maxLength + ' caracteres.');
+  if (/^[=+\-@]/.test(clean)) clean = "'" + clean;
   return clean;
 }
 

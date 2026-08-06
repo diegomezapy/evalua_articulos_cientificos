@@ -22,7 +22,7 @@
     <section id="login-panel" class="card login" aria-labelledby="login-title">
       <h2 id="login-title">Acceso del revisor</h2>
       <p>Le invitamos a realizar una evaluación estadística independiente de artículos científicos para validar su carácter muestral, mecanismo de selección y alcance inferencial.</p>
-      <p class="muted">Utilice el seudónimo y el código privado recibidos con la invitación. Su nombre real no se registra en esta aplicación.</p>
+      <p class="muted">Utilice el seudónimo y el código privado recibidos con la invitación. Si es su primer acceso, a continuación podrá registrar sus datos y aceptar la participación. La aplicación requiere que previamente haya iniciado sesión en Google.</p>
       <form id="login-form" class="stack">
         <div class="field">
           <label for="reviewer-id">Identificador</label>
@@ -38,12 +38,56 @@
           <label for="access-code">Código de acceso</label>
           <input id="access-code" type="password" autocomplete="current-password" required>
         </div>
+        <button class="btn" type="submit">Continuar</button>
+        <div id="login-status" class="status" role="status" aria-live="polite"></div>
+      </form>
+    </section>
+
+    <section id="registration-panel" class="card login hidden" aria-labelledby="registration-title">
+      <h2 id="registration-title">Registro de participación</h2>
+      <p id="registration-reviewer" class="eyebrow">Revisor</p>
+      <p class="muted">Estos datos se guardarán únicamente en la planilla administrativa privada. No serán visibles para los demás revisores ni se incorporarán a las decisiones científicas.</p>
+      <form id="registration-form" class="stack">
+        <div class="form-grid">
+          <div class="field full">
+            <label class="required" for="participant-name">Nombre y apellido</label>
+            <input id="participant-name" maxlength="200" autocomplete="name" required>
+          </div>
+          <div class="field">
+            <label class="required" for="participant-email">Correo de su cuenta Google</label>
+            <input id="participant-email" type="email" maxlength="254" autocomplete="email" required>
+            <span class="muted small">Use la misma cuenta Google con la que abrió la aplicación; a ella se concederá acceso a los 62 PDF.</span>
+          </div>
+          <div class="field">
+            <label class="required" for="participant-email-confirm">Confirmar correo Google</label>
+            <input id="participant-email-confirm" type="email" maxlength="254" autocomplete="off" required>
+          </div>
+          <div class="field full">
+            <label class="required" for="participant-institution">Institución o condición profesional</label>
+            <input id="participant-institution" maxlength="250" placeholder="Ej.: Universidad…, consultor/a independiente" required>
+          </div>
+          <div class="field">
+            <label for="participant-country">País de residencia</label>
+            <input id="participant-country" maxlength="120" autocomplete="country-name">
+          </div>
+          <div class="field">
+            <label class="required" for="participant-specialty">Especialidad o experiencia</label>
+            <input id="participant-specialty" maxlength="250" placeholder="Ej.: muestreo, bioestadística, encuestas" required>
+          </div>
+          <div class="field full">
+            <label for="participant-orcid">ORCID, opcional</label>
+            <input id="participant-orcid" maxlength="40" placeholder="0000-0000-0000-0000" inputmode="numeric">
+          </div>
+        </div>
         <label class="consent" for="accept-participation">
           <input id="accept-participation" type="checkbox" required>
-          <span>Confirmo mi disponibilidad, acepto participar y realizaré las 62 evaluaciones de manera independiente, sin consultar decisiones de IA ni respuestas de otros revisores.</span>
+          <span>Confirmo que los datos declarados son correctos, acepto participar y realizaré las 62 evaluaciones de manera independiente, sin consultar decisiones de IA ni respuestas de otros revisores.</span>
         </label>
-        <button class="btn" type="submit">Ingresar al lote</button>
-        <div id="login-status" class="status" role="status" aria-live="polite"></div>
+        <div class="actions" style="justify-content:flex-start">
+          <button class="btn" type="submit">Aceptar y habilitar mi lote</button>
+          <button id="cancel-registration" class="btn btn-secondary" type="button">Volver</button>
+        </div>
+        <div id="registration-status" class="status" role="status" aria-live="polite"></div>
       </form>
     </section>
 
@@ -192,7 +236,7 @@
       'mecanismo_seleccion', 'reconoce_limitaciones', 'extrapola',
       'paginas_evidencia', 'evidencia_breve', 'justificacion', 'confianza'
     ];
-    const state = { reviewerId: '', accessCode: '', data: null, currentId: '' };
+    const state = { reviewerId: '', reviewerLabel: '', accessCode: '', data: null, currentId: '' };
 
     function callServer(name, ...args) {
       return new Promise((resolve, reject) => {
@@ -304,6 +348,19 @@
       renderCase();
     }
 
+    function enterReviewApp(data) {
+      state.data = data;
+      if (state.data.total !== 62) throw new Error(`Lote incompleto: ${state.data.total}/62`);
+      chooseInitialItem();
+      renderSummary();
+      renderQueue();
+      renderCase();
+      localStorage.setItem('r5x62_reviewer_id', state.reviewerId);
+      document.getElementById('login-panel').classList.add('hidden');
+      document.getElementById('registration-panel').classList.add('hidden');
+      document.getElementById('review-app').classList.remove('hidden');
+    }
+
     function collectPayload(status) {
       const item = currentItem();
       const payload = { assignment_id: item.assignment_id, case_code: item.case_code, estado: status };
@@ -340,20 +397,49 @@
       try {
         state.reviewerId = reviewerId;
         state.accessCode = accessCode;
-        const accepted = document.getElementById('accept-participation').checked;
-        state.data = await callServer('startParticipation', reviewerId, accessCode, accepted);
-        if (state.data.total !== 62) throw new Error(`Lote incompleto: ${state.data.total}/62`);
-        chooseInitialItem();
-        renderSummary();
-        renderQueue();
-        renderCase();
-        localStorage.setItem('r5x62_reviewer_id', reviewerId);
-        document.getElementById('login-panel').classList.add('hidden');
-        document.getElementById('review-app').classList.remove('hidden');
+        const access = await callServer('getAccessStatus', reviewerId, accessCode);
+        state.reviewerLabel = access.reviewer_label;
+        if (access.registered) {
+          enterReviewApp(await callServer('getReviewerState', reviewerId, accessCode));
+        } else {
+          document.getElementById('registration-reviewer').textContent = access.reviewer_label;
+          document.getElementById('login-panel').classList.add('hidden');
+          document.getElementById('registration-panel').classList.remove('hidden');
+          document.getElementById('participant-name').focus();
+        }
       } catch (error) {
         state.accessCode = '';
         setStatus('login-status', error.message, 'error');
       }
+    });
+
+    document.getElementById('registration-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      const profile = {
+        nombre_completo: document.getElementById('participant-name').value.trim(),
+        correo_google: document.getElementById('participant-email').value.trim(),
+        confirmar_correo: document.getElementById('participant-email-confirm').value.trim(),
+        institucion: document.getElementById('participant-institution').value.trim(),
+        pais: document.getElementById('participant-country').value.trim(),
+        especialidad: document.getElementById('participant-specialty').value.trim(),
+        orcid: document.getElementById('participant-orcid').value.trim()
+      };
+      setStatus('registration-status', 'Registrando la aceptación y habilitando los PDF…');
+      try {
+        const accepted = document.getElementById('accept-participation').checked;
+        const data = await callServer('registerParticipation', state.reviewerId, state.accessCode, profile, accepted);
+        enterReviewApp(data);
+      } catch (error) {
+        setStatus('registration-status', error.message, 'error');
+      }
+    });
+
+    document.getElementById('cancel-registration').addEventListener('click', () => {
+      state.accessCode = '';
+      document.getElementById('access-code').value = '';
+      document.getElementById('registration-panel').classList.add('hidden');
+      document.getElementById('login-panel').classList.remove('hidden');
+      setStatus('registration-status', '');
     });
 
     document.getElementById('save-draft').addEventListener('click', () => save('BORRADOR'));
@@ -367,6 +453,7 @@
       state.data = null;
       document.getElementById('access-code').value = '';
       document.getElementById('review-app').classList.add('hidden');
+      document.getElementById('registration-panel').classList.add('hidden');
       document.getElementById('login-panel').classList.remove('hidden');
     });
 

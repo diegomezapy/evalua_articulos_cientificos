@@ -57,6 +57,11 @@ páginas de evidencia, evidencia textual breve, justificación y confianza.
 ## Controles de la aplicación
 
 - acceso mediante seudónimo y código individual;
+- autorregistro del estadístico en el primer acceso, con aceptación expresa y
+  captura de nombre, correo Google, institución, país, especialidad y ORCID
+  opcional;
+- habilitación automática de una carpeta privada con los 62 PDF del lote una
+  vez aceptada la participación;
 - visualización exclusiva del lote asignado;
 - decisiones IA y juicios ajenos fuera de la aplicación;
 - guardado de borradores y bloqueo de registros finales;
@@ -83,5 +88,6 @@ python3 scripts/build_review_5x62.py \
 
 La semilla predeterminada es `20260806`. Los PDF y el manifiesto que contiene
 las decisiones IA deben mantenerse fuera de Git. La carpeta maestra permanece
-privada y cada cuenta recibe permiso de lectura solamente sobre sus 62 archivos
-asignados, incluidos los diez casos comunes.
+privada. La preparación crea cinco lotes de 62 PDF, con copias independientes de
+los diez casos comunes, y comparte el lote solamente después de que la persona
+registre su correo Google y acepte participar.
