@@ -47,7 +47,21 @@
           <div class="metric"><span class="metric-label">Casos comunes</span><span id="common-cases" class="metric-value">10</span></div>
           <div class="metric"><span class="metric-label">Comunes completos ×5</span><span id="common-complete" class="metric-value">0</span></div>
         </div>
+        <div class="summary-grid">
+          <div class="metric"><span class="metric-label">Solicitudes pendientes</span><span id="requests-pending" class="metric-value">0</span></div>
+          <div class="metric"><span class="metric-label">Solicitudes aprobadas</span><span id="requests-approved" class="metric-value">0</span></div>
+          <div class="metric"><span class="metric-label">Solicitudes rechazadas</span><span id="requests-rejected" class="metric-value">0</span></div>
+          <div class="metric"><span class="metric-label">Cupos disponibles</span><span id="available-slots" class="metric-value">5</span></div>
+        </div>
       </div>
+
+      <section class="card admin-section">
+        <div class="section-head"><h2>Solicitudes de participación</h2><span class="muted small">Aprobar asigna automáticamente el primer lote disponible y habilita sus 62 PDF</span></div>
+        <table>
+          <thead><tr><th>Fecha</th><th>Solicitud</th><th>Nombre</th><th>Correo Google</th><th>Institución</th><th>País</th><th>Especialidad</th><th>Estado</th><th>Lote</th><th>Acción</th></tr></thead>
+          <tbody id="request-body"></tbody>
+        </table>
+      </section>
 
       <section class="card admin-section">
         <div class="section-head"><h2>Avance por estadístico</h2><span class="muted small">Cada lote debe cerrar en 62/62</span></div>
@@ -66,9 +80,12 @@
       </section>
 
       <section class="card admin-section">
-        <h2>Enlaces de invitación</h2>
-        <p class="muted">Envíe a cada persona únicamente su enlace y su código. En el primer acceso registrará sus propios datos, aceptará el protocolo y recibirá acceso al lote correspondiente. No adjunte el manifiesto administrativo ni resultados de IA.</p>
-        <div id="invite-links" class="stack"></div>
+        <h2>Enlace público para solicitar participación</h2>
+        <p class="muted">Envíe este único enlace. El candidato no necesita código previo: crea su clave personal al completar la solicitud. Los PDF permanecen bloqueados hasta su aprobación.</p>
+        <div class="actions" style="justify-content:flex-start">
+          <input id="public-request-url" class="public-link" readonly>
+          <button id="copy-public-url" class="btn btn-secondary" type="button">Copiar enlace</button>
+        </div>
       </section>
 
       <div id="admin-status" class="status" role="status" aria-live="polite" style="margin-top:12px"></div>
@@ -102,6 +119,18 @@
       return value == null || Number.isNaN(Number(value)) ? '—' : Number(value).toFixed(3);
     }
 
+    function formatDate(value) {
+      if (!value) return '—';
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('es-PY', {
+        dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Asuncion'
+      }).format(date);
+    }
+
+    function requestStatusLabel(value) {
+      return ({ PENDING: 'Pendiente', APPROVED: 'Aprobada', REJECTED: 'Rechazada' })[value] || value;
+    }
+
     function cell(text, className = '') {
       const node = document.createElement('td');
       node.className = className;
@@ -115,6 +144,49 @@
       document.getElementById('unique-cases').textContent = data.unique_cases;
       document.getElementById('common-cases').textContent = data.common_cases;
       document.getElementById('common-complete').textContent = data.common_complete_by_all;
+      document.getElementById('requests-pending').textContent = data.access_request_summary.pending;
+      document.getElementById('requests-approved').textContent = data.access_request_summary.approved;
+      document.getElementById('requests-rejected').textContent = data.access_request_summary.rejected;
+      document.getElementById('available-slots').textContent = data.access_request_summary.available_slots;
+
+      const requestBody = document.getElementById('request-body');
+      requestBody.replaceChildren();
+      if (!data.access_requests.length) {
+        const row = document.createElement('tr');
+        const empty = cell('Todavía no se recibieron solicitudes.');
+        empty.colSpan = 10;
+        row.appendChild(empty);
+        requestBody.appendChild(row);
+      }
+      data.access_requests.forEach(item => {
+        const row = document.createElement('tr');
+        const actions = document.createElement('td');
+        if (item.status === 'PENDING') {
+          const approve = document.createElement('button');
+          approve.type = 'button';
+          approve.className = 'btn';
+          approve.textContent = 'Aprobar';
+          approve.addEventListener('click', () => decideRequest(item, 'APPROVE'));
+          const reject = document.createElement('button');
+          reject.type = 'button';
+          reject.className = 'btn btn-danger';
+          reject.textContent = 'Rechazar';
+          reject.addEventListener('click', () => decideRequest(item, 'REJECT'));
+          const group = document.createElement('div');
+          group.className = 'actions';
+          group.style.justifyContent = 'flex-start';
+          group.append(approve, reject);
+          actions.appendChild(group);
+        } else {
+          actions.textContent = 'Resuelta';
+        }
+        row.append(
+          cell(formatDate(item.requested_at)), cell(item.request_id), cell(item.nombre_completo),
+          cell(item.correo_google), cell(item.institucion), cell(item.pais || '—'),
+          cell(item.especialidad), cell(requestStatusLabel(item.status)), cell(item.reviewer_label || '—'), actions
+        );
+        requestBody.appendChild(row);
+      });
 
       const progressBody = document.getElementById('progress-body');
       progressBody.replaceChildren();
@@ -144,32 +216,20 @@
         agreementBody.appendChild(row);
       });
 
-      const inviteTarget = document.getElementById('invite-links');
-      inviteTarget.replaceChildren();
-      data.progress.forEach(item => {
-        const url = `${data.app_url || APP_URL}?reviewer=${encodeURIComponent(item.reviewer_id)}`;
-        const wrapper = document.createElement('div');
-        wrapper.className = 'field';
-        const label = document.createElement('label');
-        label.textContent = item.reviewer_label;
-        const input = document.createElement('input');
-        input.value = url;
-        input.readOnly = true;
-        const button = document.createElement('button');
-        button.className = 'btn btn-secondary';
-        button.type = 'button';
-        button.textContent = 'Copiar enlace';
-        button.addEventListener('click', async () => {
-          await navigator.clipboard.writeText(url);
-          setStatus('admin-status', `Enlace de ${item.reviewer_id} copiado.`, 'success');
-        });
-        const line = document.createElement('div');
-        line.className = 'actions';
-        line.style.justifyContent = 'flex-start';
-        line.append(input, button);
-        wrapper.append(label, line);
-        inviteTarget.appendChild(wrapper);
-      });
+      document.getElementById('public-request-url').value = data.app_url || APP_URL;
+    }
+
+    async function decideRequest(item, decision) {
+      const action = decision === 'APPROVE' ? 'aprobar' : 'rechazar';
+      if (!window.confirm(`¿Desea ${action} la solicitud de ${item.nombre_completo}?`)) return;
+      setStatus('admin-status', decision === 'APPROVE' ? 'Aprobando y habilitando el lote…' : 'Registrando rechazo…');
+      try {
+        state.dashboard = await callServer('decideAccessRequest', state.adminCode, item.request_id, decision);
+        renderDashboard();
+        setStatus('admin-status', `Solicitud ${decision === 'APPROVE' ? 'aprobada' : 'rechazada'}.`, 'success');
+      } catch (error) {
+        setStatus('admin-status', error.message, 'error');
+      }
     }
 
     async function refresh() {
@@ -213,6 +273,10 @@
     });
     document.getElementById('refresh').addEventListener('click', () => refresh().catch(error => setStatus('admin-status', error.message, 'error')));
     document.getElementById('export').addEventListener('click', () => exportCsv().catch(error => setStatus('admin-status', error.message, 'error')));
+    document.getElementById('copy-public-url').addEventListener('click', async () => {
+      await navigator.clipboard.writeText(document.getElementById('public-request-url').value);
+      setStatus('admin-status', 'Enlace público copiado.', 'success');
+    });
     document.getElementById('logout').addEventListener('click', () => {
       state.adminCode = '';
       document.getElementById('admin-code').value = '';

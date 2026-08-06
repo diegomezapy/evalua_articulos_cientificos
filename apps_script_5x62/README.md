@@ -7,15 +7,16 @@ en Google Sheets.
 ## Qué protege
 
 - Cada revisor solo puede abrir sus 62 asignaciones.
-- En el primer acceso, cada estadístico registra su nombre, correo Google,
-  institución, país, especialidad y ORCID opcional, y acepta el protocolo.
-- El cupo se registra una sola vez y queda vinculado a su seudónimo.
+- El candidato solicita participación sin código previo, registra sus datos,
+  acepta el protocolo y crea su propia clave personal.
+- La solicitud queda pendiente hasta que el administrador la aprueba o rechaza.
+- La aprobación asigna el primer cupo disponible y comparte únicamente su lote.
 - Las decisiones de IA no se cargan en la aplicación.
 - Las respuestas de los otros revisores no se muestran.
 - Los registros finales quedan bloqueados.
-- Las credenciales se almacenan como hashes SHA-256 en las propiedades del
-  proyecto. Los códigos recuperables quedan únicamente en dos hojas ocultas de
-  la planilla administrativa privada, nunca en el código ni en los registros.
+- La clave personal de cada solicitante se almacena únicamente como hash
+  SHA-256. El código administrativo recuperable permanece en una hoja oculta de
+  la planilla privada, nunca en el código ni en los registros públicos.
 - Todas las altas y actualizaciones quedan registradas en `auditoria`.
 
 ## Preparación privada en Drive
@@ -35,7 +36,7 @@ revision_humana_5x62_2026/
 2. Suba los 270 archivos de `PDF_PRIVADOS/` a una única subcarpeta.
 3. No comparta manualmente la subcarpeta completa ni los PDF. La preparación
    crea cinco carpetas privadas de 62 archivos y la aplicación comparte solo la
-   carpeta correspondiente cuando el estadístico acepta y registra su correo.
+   carpeta correspondiente cuando el administrador aprueba la solicitud.
 4. Suba `asignaciones_5x62.csv` a Drive, también con acceso restringido.
 5. No suba ni comparta `manifiesto_admin_5x62.csv`; contiene la reserva IA.
 
@@ -67,20 +68,19 @@ Los IDs se obtienen de las URL de Drive. No se deben guardar en GitHub.
 
 1. En el editor de Apps Script, ejecute `setup_inicial()` una sola vez.
 2. Autorice lectura de Drive y escritura en Sheets.
-3. El resultado informa el ID de la hoja central creada, sin revelar códigos en
+3. El resultado informa el ID de la hoja central creada, sin revelar credenciales en
    el registro de ejecución.
 4. Abra la planilla administrativa y muestre temporalmente las hojas ocultas
-   `credenciales_privadas` e `invitaciones_privadas` para copiar los códigos y
-   mensajes. Vuelva a ocultarlas y no comparta esta planilla.
-5. Si pierde los códigos, ejecute `rotarCredencialesDesdeEditor()` como
-   propietario desde el editor de Apps Script. La rotación invalida todos los
-   códigos anteriores.
+   `credenciales_privadas` e `invitaciones_privadas` para copiar el código
+   administrativo y el mensaje público. Vuelva a ocultarlas y no comparta esta planilla.
+5. Si pierde el código administrativo, ejecute `rotarCredencialesDesdeEditor()`
+   como propietario desde el editor de Apps Script.
 6. Ejecute `prepararLotesDesdeEditor()` una vez. La función mueve los 260 casos
    exclusivos y crea una copia de cada caso común dentro de los cinco lotes.
-7. Ejecute `validarDespliegueDesdeEditor()`. Debe confirmar cinco accesos
-   autenticados, 62 asignaciones por revisor, 310 asignaciones, 270 casos únicos,
-   diez casos comunes, cinco carpetas con 62 PDF y ambas hojas privadas ocultas,
-   sin mostrar los códigos.
+7. Ejecute `inicializarFlujoSolicitudesDesdeEditor()` para crear la hoja privada
+   de solicitudes y regenerar el mensaje público sin códigos de revisor.
+8. Ejecute `validarDespliegueDesdeEditor()`. Debe confirmar cinco lotes de 62,
+   310 asignaciones, 270 casos únicos, diez casos comunes y hojas privadas ocultas.
 
 ## Despliegue
 
@@ -88,15 +88,14 @@ Después de inicializar:
 
 1. **Implementar → Nueva implementación → Aplicación web**.
 2. Ejecutar como: **usted, propietario del proyecto**.
-3. Acceso: el mínimo que permita ingresar a los cinco revisores. Si pertenecen a
-   dominios diferentes, normalmente será “cualquier usuario”; los códigos de la
-   aplicación seguirán siendo obligatorios.
-4. Envíe a cada persona su enlace y código, sin necesidad de conocer previamente
-   su nombre ni correo.
-5. El estadístico abre el enlace e inicia sesión en Google. En el primer acceso
-   declara y confirma esa misma cuenta, completa sus datos y acepta el protocolo.
-   La aplicación guarda el registro y habilita como lector la carpeta de sus 62 PDF.
-6. En accesos posteriores utiliza únicamente su seudónimo y código.
+3. Acceso: el mínimo que permita ingresar a candidatos de distintos dominios,
+   normalmente “cualquier usuario” con cuenta Google.
+4. Envíe a todos el mismo enlace público. No necesitan código previo.
+5. El candidato inicia sesión en Google, pulsa “Solicitar participación”, declara
+   y confirma esa cuenta, completa sus datos, crea su clave y acepta el protocolo.
+6. Usted aprueba o rechaza desde el panel administrativo. La aprobación asigna
+   automáticamente un cupo y habilita la carpeta de 62 PDF para su correo.
+7. El revisor ingresa posteriormente con su correo Google y su clave personal.
 
 El panel administrativo está en:
 

@@ -56,12 +56,12 @@ páginas de evidencia, evidencia textual breve, justificación y confianza.
 
 ## Controles de la aplicación
 
-- acceso mediante seudónimo y código individual;
-- autorregistro del estadístico en el primer acceso, con aceptación expresa y
-  captura de nombre, correo Google, institución, país, especialidad y ORCID
-  opcional;
+- solicitud pública sin código previo, con captura de nombre, correo Google,
+  institución, país, especialidad, ORCID opcional y aceptación expresa;
+- clave personal creada por el candidato y almacenada únicamente como hash;
+- aprobación o rechazo desde el panel administrativo;
 - habilitación automática de una carpeta privada con los 62 PDF del lote una
-  vez aceptada la participación;
+  vez aprobada la solicitud;
 - visualización exclusiva del lote asignado;
 - decisiones IA y juicios ajenos fuera de la aplicación;
 - guardado de borradores y bloqueo de registros finales;
@@ -70,10 +70,10 @@ páginas de evidencia, evidencia textual breve, justificación y confianza.
 - panel administrativo de avance;
 - acuerdo por pares y kappa de Fleiss sobre los diez casos comunes;
 - exportación consolidada de las 310 asignaciones.
-- credenciales recuperables e invitaciones en hojas ocultas de una planilla
-  administrativa no compartida, con hashes de acceso en propiedades del script;
-- autoprueba del administrador para verificar cinco accesos y la integridad del
-  diseño sin exponer códigos en los registros de ejecución.
+- solicitudes y mensaje de invitación en hojas ocultas de una planilla
+  administrativa no compartida;
+- autoprueba del administrador para verificar los cinco lotes y la integridad
+  del diseño sin exponer credenciales en los registros de ejecución.
 
 ## Generación reproducible
 
@@ -89,5 +89,5 @@ python3 scripts/build_review_5x62.py \
 La semilla predeterminada es `20260806`. Los PDF y el manifiesto que contiene
 las decisiones IA deben mantenerse fuera de Git. La carpeta maestra permanece
 privada. La preparación crea cinco lotes de 62 PDF, con copias independientes de
-los diez casos comunes, y comparte el lote solamente después de que la persona
-registre su correo Google y acepte participar.
+los diez casos comunes, y comparte el lote solamente después de que el
+administrador aprueba la solicitud de participación.

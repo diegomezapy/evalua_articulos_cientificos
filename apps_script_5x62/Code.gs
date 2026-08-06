@@ -6,8 +6,9 @@
  * - R5X62_PDF_FOLDER_ID
  *
  * setup_inicial() crea la hoja de cálculo, importa las 310 asignaciones,
- * resuelve los 270 PDF y genera credenciales de un solo uso para cinco revisores
- * y un administrador. Las decisiones IA no se importan a esta aplicación.
+ * resuelve los 270 PDF y genera la credencial privada del administrador.
+ * Los candidatos se autorregistran, crean su clave personal y solo reciben un
+ * lote después de la aprobación administrativa. Las decisiones IA no se importan.
  */
 
 const R5X62 = Object.freeze({
@@ -18,9 +19,9 @@ const R5X62 = Object.freeze({
   LOT_ROOT_FOLDER_PROP: 'R5X62_LOT_ROOT_FOLDER_ID',
   REVIEWER_FOLDER_PROP_PREFIX: 'R5X62_REVIEWER_FOLDER_',
   ADMIN_HASH_PROP: 'R5X62_ADMIN_HASH',
-  REVIEWER_HASH_PREFIX: 'R5X62_REVIEWER_HASH_',
   PRIVATE_CREDENTIALS: 'credenciales_privadas',
   PRIVATE_INVITATIONS: 'invitaciones_privadas',
+  ACCESS_REQUESTS: 'solicitudes_acceso',
   ASSIGNMENTS: 'asignaciones',
   EVALUATIONS: 'evaluaciones',
   PARTICIPANTS: 'participantes',
@@ -52,6 +53,13 @@ const PARTICIPANT_HEADERS = [
   'accepted_at', 'reviewer_id', 'reviewer_label', 'protocol_version',
   'nombre_completo', 'correo_google', 'institucion', 'pais',
   'especialidad', 'orcid', 'pdf_access_status', 'pdf_access_count',
+];
+
+const ACCESS_REQUEST_HEADERS = [
+  'requested_at', 'request_id', 'status', 'nombre_completo',
+  'correo_google', 'institucion', 'pais', 'especialidad', 'orcid',
+  'protocol_version', 'personal_code_hash', 'decision_at',
+  'reviewer_id', 'reviewer_label', 'pdf_access_status', 'pdf_access_count',
 ];
 
 const VALID_VALUES = Object.freeze({
@@ -137,6 +145,8 @@ function setup_inicial() {
   _writeNewSheet_(assignmentsSheet, ASSIGNMENT_HEADERS, assignments);
   _writeNewSheet_(ss.insertSheet(R5X62.EVALUATIONS), EVALUATION_HEADERS, []);
   _writeNewSheet_(ss.insertSheet(R5X62.PARTICIPANTS), PARTICIPANT_HEADERS, []);
+  _writeNewSheet_(ss.insertSheet(R5X62.ACCESS_REQUESTS), ACCESS_REQUEST_HEADERS, []);
+  ss.getSheetByName(R5X62.ACCESS_REQUESTS).hideSheet();
   _writeNewSheet_(ss.insertSheet(R5X62.AUDIT), AUDIT_HEADERS, []);
   props.setProperty(R5X62.SHEET_PROP, ss.getId());
 
@@ -175,10 +185,35 @@ function prepararLotesDesdeEditor() {
 }
 
 
+function inicializarFlujoSolicitudesDesdeEditor() {
+  _assertOwnerEditor_();
+  const props = PropertiesService.getScriptProperties();
+  R5X62.REVIEWERS.forEach(function (reviewer) {
+    props.deleteProperty('R5X62_REVIEWER_HASH_' + reviewer);
+  });
+  const ss = _spreadsheet_();
+  const requestSheet = _ensureAccessRequestSheet_(ss);
+  const appUrl = ScriptApp.getService().getUrl() || '';
+  _writePrivateSheet_(ss, R5X62.PRIVATE_INVITATIONS,
+    ['generated_at', 'purpose', 'whatsapp_message'],
+    [[new Date().toISOString(), 'SOLICITUD_PUBLICA', _publicInvitationMessage_(appUrl)]]);
+  const result = {
+    ok: true,
+    access_request_sheet: R5X62.ACCESS_REQUESTS,
+    access_request_sheet_hidden: requestSheet.isSheetHidden(),
+    existing_requests: Math.max(0, requestSheet.getLastRow() - 1),
+    invitation_sheet: R5X62.PRIVATE_INVITATIONS,
+  };
+  Logger.log(JSON.stringify(result));
+  return result;
+}
+
+
 function validarDespliegueDesdeEditor() {
   _assertOwnerEditor_();
   const ss = _spreadsheet_();
   _ensureParticipantSchema_(ss.getSheetByName(R5X62.PARTICIPANTS));
+  const accessRequestSheet = _ensureAccessRequestSheet_(ss);
   const credentialSheet = ss.getSheetByName(R5X62.PRIVATE_CREDENTIALS);
   const invitationSheet = ss.getSheetByName(R5X62.PRIVATE_INVITATIONS);
   if (!credentialSheet || !invitationSheet) {
@@ -193,18 +228,13 @@ function validarDespliegueDesdeEditor() {
 
   const assignments = _readObjects_(ss.getSheetByName(R5X62.ASSIGNMENTS));
   const reviewerChecks = R5X62.REVIEWERS.map(function (reviewer) {
-    const credential = credentials.find(function (row) {
-      return String(row.role) === 'REVISOR' && String(row.reviewer_id) === reviewer;
-    });
-    if (!credential) throw new Error('Falta la credencial privada de ' + reviewer + '.');
-    _authenticateReviewer_(reviewer, String(credential.access_code || ''));
     const assigned = assignments.filter(function (row) {
       return String(row.reviewer_id) === reviewer;
     }).length;
     if (assigned !== 62) {
       throw new Error(reviewer + ' tiene ' + assigned + ' asignaciones, se esperaban 62.');
     }
-    return { reviewer_id: reviewer, authenticated: true, assignments: assigned };
+    return { reviewer_id: reviewer, assignments: assigned };
   });
   const uniqueCases = new Set(assignments.map(function (row) {
     return String(row.case_code);
@@ -220,12 +250,14 @@ function validarDespliegueDesdeEditor() {
   const result = {
     ok: true,
     admin_authenticated: true,
-    reviewers_authenticated: reviewerChecks.length,
+    reviewer_slots_validated: reviewerChecks.length,
     reviewers: reviewerChecks,
     total_assignments: assignments.length,
     unique_cases: uniqueCases,
     common_cases: commonCases,
     private_sheets_hidden: credentialSheet.isSheetHidden() && invitationSheet.isSheetHidden(),
+    access_request_sheet_hidden: accessRequestSheet.isSheetHidden(),
+    access_requests: Math.max(0, accessRequestSheet.getLastRow() - 1),
     reviewer_folders: _reviewerFolderStatus_(),
   };
   Logger.log(JSON.stringify(result));
@@ -256,12 +288,10 @@ function _rotateAndStoreCredentials_() {
 
 function _rotateCredentials_() {
   const props = PropertiesService.getScriptProperties();
-  const credentials = { admin: _newAccessCode_(), reviewers: {} };
+  const credentials = { admin: _newAccessCode_() };
   props.setProperty(R5X62.ADMIN_HASH_PROP, _hash_(credentials.admin));
   R5X62.REVIEWERS.forEach(function (reviewer) {
-    const code = _newAccessCode_();
-    credentials.reviewers[reviewer] = code;
-    props.setProperty(R5X62.REVIEWER_HASH_PREFIX + reviewer, _hash_(code));
+    props.deleteProperty('R5X62_REVIEWER_HASH_' + reviewer);
   });
   return credentials;
 }
@@ -270,59 +300,42 @@ function _rotateCredentials_() {
 function _storePrivateAccessSheets_(credentials) {
   const generatedAt = new Date().toISOString();
   const appUrl = ScriptApp.getService().getUrl() || '';
-  const reviewerRecords = R5X62.REVIEWERS.map(function (reviewer) {
-    return {
-      reviewer_id: reviewer,
-      reviewer_label: _reviewerLabel_(reviewer),
-      access_code: credentials.reviewers[reviewer],
-      invitation_url: appUrl + '?reviewer=' + encodeURIComponent(reviewer),
-    };
-  });
   const credentialRows = [[
     generatedAt, 'ADMIN', '', 'Administrador', credentials.admin,
     appUrl + '?view=admin',
-  ]].concat(reviewerRecords.map(function (record) {
-    return [
-      generatedAt, 'REVISOR', record.reviewer_id, record.reviewer_label,
-      record.access_code, record.invitation_url,
-    ];
-  }));
-  const invitationRows = reviewerRecords.map(function (record) {
-    const message = [
-      'FECHA LÍMITE: [AAAA-MM-DD]',
-      '',
-      'Hola. Le invito a participar como revisor/a estadístico/a independiente',
-      'de 62 artículos científicos sobre estudios sudamericanos basados en muestras.',
-      '',
-      'Seudónimo: ' + record.reviewer_label,
-      'Código privado: ' + record.access_code,
-      'Aplicación: ' + record.invitation_url,
-      '',
-      'En el primer acceso, ingrese el seudónimo y el código. Luego complete sus',
-      'datos, declare el correo de su cuenta Google y acepte el protocolo.',
-      'La aplicación registrará su participación y habilitará su lote privado.',
-      '',
-      'Puede guardar borradores. Use “Enviar evaluación final” únicamente cuando',
-      'la revisión esté completa, porque el registro quedará bloqueado.',
-      '',
-      'No comparta el código, los PDF ni sus respuestas con otros revisores.',
-      'Si un PDF no abre o no corresponde, comuníquelo al coordinador.',
-      '',
-      'Muchas gracias por su colaboración.',
-      'Diego Meza',
-    ].join('\n');
-    return [record.reviewer_id, record.reviewer_label, message];
-  });
+  ]];
+  const invitationRows = [[generatedAt, 'SOLICITUD_PUBLICA', _publicInvitationMessage_(appUrl)]];
   const ss = _spreadsheet_();
   _writePrivateSheet_(ss, R5X62.PRIVATE_CREDENTIALS,
     ['generated_at', 'role', 'reviewer_id', 'reviewer_label', 'access_code', 'url'],
     credentialRows);
   _writePrivateSheet_(ss, R5X62.PRIVATE_INVITATIONS,
-    ['reviewer_id', 'reviewer_label', 'whatsapp_message'], invitationRows);
+    ['generated_at', 'purpose', 'whatsapp_message'], invitationRows);
   return {
     credentials_sheet: R5X62.PRIVATE_CREDENTIALS,
     invitations_sheet: R5X62.PRIVATE_INVITATIONS,
   };
+}
+
+
+function _publicInvitationMessage_(appUrl) {
+  return [
+    'FECHA LÍMITE: [AAAA-MM-DD]',
+    '',
+    'Hola. Le invito a solicitar su participación como revisor/a estadístico/a',
+    'independiente de artículos científicos sobre estudios sudamericanos basados en muestras.',
+    '',
+    'Aplicación: ' + appUrl,
+    '',
+    'Abra el enlace, inicie sesión en Google y pulse “Solicitar participación”.',
+    'Complete sus datos, cree su clave personal y acepte el protocolo.',
+    'Su solicitud quedará pendiente de aprobación. No necesita un código previo.',
+    'Cuando sea aprobada, podrá ingresar con su correo y su clave personal.',
+    '',
+    'Cada persona aprobada evaluará de manera independiente un lote de 62 artículos.',
+    'Muchas gracias por su colaboración.',
+    'Diego Meza',
+  ].join('\n');
 }
 
 
@@ -463,63 +476,53 @@ function _countFiles_(folder) {
 }
 
 
-function getAccessStatus(reviewerId, accessCode) {
-  reviewerId = String(reviewerId || '').trim().toUpperCase();
-  _authenticateReviewer_(reviewerId, accessCode);
-  const ss = _spreadsheet_();
-  const participant = _participantByReviewer_(ss, reviewerId);
-  return {
-    reviewer_id: reviewerId,
-    reviewer_label: _reviewerLabel_(reviewerId),
-    registered: Boolean(participant),
-  };
-}
-
-
-function registerParticipation(reviewerId, accessCode, profile, accepted) {
-  reviewerId = String(reviewerId || '').trim().toUpperCase();
-  _authenticateReviewer_(reviewerId, accessCode);
+function submitAccessRequest(profile, personalCode, personalCodeConfirmation, accepted) {
   if (accepted !== true) {
     throw new Error('Debe confirmar que acepta participar bajo el protocolo de revisión.');
   }
   const clean = _validateParticipantProfile_(profile);
+  const code = _validatePersonalCode_(personalCode, personalCodeConfirmation);
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
     const ss = _spreadsheet_();
-    const sheet = ss.getSheetByName(R5X62.PARTICIPANTS);
-    _ensureParticipantSchema_(sheet);
-    if (_participantByReviewer_(ss, reviewerId)) {
-      throw new Error('Este cupo ya fue registrado. Ingrese normalmente con su seudónimo y código.');
+    const sheet = _ensureAccessRequestSheet_(ss);
+    if (_participantByEmail_(ss, clean.correo_google) || _requestByEmail_(ss, clean.correo_google)) {
+      throw new Error('Este correo ya tiene una solicitud. Use “Consultar o ingresar” con su clave personal.');
     }
-    const emailAlreadyUsed = _readObjects_(sheet).some(function (row) {
-      return String(row.correo_google || '').toLowerCase() === clean.correo_google;
-    });
-    if (emailAlreadyUsed) throw new Error('Este correo ya está asociado a otro revisor.');
-    const granted = _grantReviewerFolderAccess_(reviewerId, clean.correo_google);
     const now = new Date();
+    const requestId = 'SOL-' + Utilities.getUuid().replace(/-/g, '').slice(0, 12).toUpperCase();
     const record = {
-      accepted_at: now,
-      reviewer_id: reviewerId,
-      reviewer_label: _reviewerLabel_(reviewerId),
-      protocol_version: 'REVISION_MUESTRAL_270_V2',
+      requested_at: now,
+      request_id: requestId,
+      status: 'PENDING',
       nombre_completo: clean.nombre_completo,
       correo_google: clean.correo_google,
       institucion: clean.institucion,
       pais: clean.pais,
       especialidad: clean.especialidad,
       orcid: clean.orcid,
-      pdf_access_status: 'GRANTED',
-      pdf_access_count: granted,
+      protocol_version: 'REVISION_MUESTRAL_270_V3',
+      personal_code_hash: _hash_(requestId + '|' + code),
+      decision_at: '',
+      reviewer_id: '',
+      reviewer_label: '',
+      pdf_access_status: 'NOT_GRANTED',
+      pdf_access_count: 0,
     };
-    sheet.appendRow(PARTICIPANT_HEADERS.map(function (header) { return record[header]; }));
+    sheet.appendRow(ACCESS_REQUEST_HEADERS.map(function (header) { return record[header]; }));
     ss.getSheetByName(R5X62.AUDIT).appendRow([
-      now, 'REGISTER_PARTICIPATION', reviewerId, '', '', 'ACCEPTED', 2,
+      now, 'REQUEST_ACCESS', '', requestId, '', 'PENDING', 3,
     ]);
+    return {
+      ok: true,
+      request_id: requestId,
+      status: 'PENDING',
+      correo_google: clean.correo_google,
+    };
   } finally {
     lock.releaseLock();
   }
-  return getReviewerState(reviewerId, accessCode);
 }
 
 
@@ -527,6 +530,31 @@ function _participantByReviewer_(ss, reviewerId) {
   return _readObjects_(ss.getSheetByName(R5X62.PARTICIPANTS)).find(function (row) {
     return String(row.reviewer_id) === reviewerId;
   }) || null;
+}
+
+
+function _participantByEmail_(ss, email) {
+  return _readObjects_(ss.getSheetByName(R5X62.PARTICIPANTS)).find(function (row) {
+    return String(row.correo_google || '').toLowerCase() === email;
+  }) || null;
+}
+
+
+function _requestByEmail_(ss, email) {
+  return _readObjects_(_ensureAccessRequestSheet_(ss)).find(function (row) {
+    return String(row.correo_google || '').toLowerCase() === email;
+  }) || null;
+}
+
+
+function _requestRowById_(sheet, requestId) {
+  const rows = _readObjects_(sheet);
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    if (String(rows[index].request_id) === requestId) {
+      return { record: rows[index], rowNumber: index + 2 };
+    }
+  }
+  return null;
 }
 
 
@@ -543,12 +571,115 @@ function _ensureParticipantSchema_(sheet) {
 }
 
 
-function getReviewerState(reviewerId, accessCode) {
-  reviewerId = String(reviewerId || '').trim().toUpperCase();
-  _authenticateReviewer_(reviewerId, accessCode);
+function _ensureAccessRequestSheet_(ss) {
+  let sheet = ss.getSheetByName(R5X62.ACCESS_REQUESTS);
+  if (!sheet) {
+    sheet = ss.insertSheet(R5X62.ACCESS_REQUESTS);
+  }
+  const current = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn()))
+    .getValues()[0].map(String);
+  ACCESS_REQUEST_HEADERS.forEach(function (header, index) {
+    if (current[index] && current[index] !== header) {
+      throw new Error('Esquema inesperado en solicitudes, columna ' + (index + 1) + '.');
+    }
+  });
+  sheet.getRange(1, 1, 1, ACCESS_REQUEST_HEADERS.length).setValues([ACCESS_REQUEST_HEADERS]);
+  sheet.setFrozenRows(1);
+  if (!sheet.isSheetHidden()) sheet.hideSheet();
+  return sheet;
+}
+
+
+function getApplicantAccess(email, personalCode) {
   const ss = _spreadsheet_();
-  const participant = _participantByReviewer_(ss, reviewerId);
-  if (!participant) throw new Error('Primero debe aceptar la invitación de participación.');
+  const request = _authenticateApplicantRequest_(ss, email, personalCode);
+  const status = String(request.status || 'PENDING');
+  const response = {
+    request_id: String(request.request_id),
+    status: status,
+    reviewer_id: String(request.reviewer_id || ''),
+    reviewer_label: String(request.reviewer_label || ''),
+  };
+  if (status === 'APPROVED') {
+    if (!response.reviewer_id) throw new Error('La aprobación no tiene lote asignado. Contacte al coordinador.');
+    response.data = _reviewerState_(ss, response.reviewer_id);
+  }
+  return response;
+}
+
+
+function decideAccessRequest(adminCode, requestId, decision) {
+  _authenticateAdmin_(adminCode);
+  requestId = String(requestId || '').trim().toUpperCase();
+  decision = String(decision || '').trim().toUpperCase();
+  if (['APPROVE', 'REJECT'].indexOf(decision) === -1) throw new Error('Decisión administrativa inválida.');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const ss = _spreadsheet_();
+    const requestSheet = _ensureAccessRequestSheet_(ss);
+    const found = _requestRowById_(requestSheet, requestId);
+    if (!found) throw new Error('Solicitud no encontrada.');
+    if (String(found.record.status) !== 'PENDING') {
+      throw new Error('La solicitud ya fue resuelta: ' + found.record.status + '.');
+    }
+    const now = new Date();
+    const record = found.record;
+    let auditEvent = '';
+    let auditReviewer = '';
+    if (decision === 'REJECT') {
+      record.status = 'REJECTED';
+      record.decision_at = now;
+      record.pdf_access_status = 'NOT_GRANTED';
+      auditEvent = 'REJECT_ACCESS_REQUEST';
+    } else {
+      const participants = _readObjects_(ss.getSheetByName(R5X62.PARTICIPANTS));
+      const occupied = {};
+      participants.forEach(function (row) { occupied[String(row.reviewer_id)] = true; });
+      const reviewerId = R5X62.REVIEWERS.find(function (candidate) { return !occupied[candidate]; });
+      if (!reviewerId) throw new Error('Los cinco cupos ya están ocupados.');
+      const email = String(record.correo_google || '').toLowerCase();
+      if (_participantByEmail_(ss, email)) throw new Error('El correo ya pertenece a un participante aprobado.');
+      const granted = _grantReviewerFolderAccess_(reviewerId, email);
+      const participant = {
+        accepted_at: now,
+        reviewer_id: reviewerId,
+        reviewer_label: _reviewerLabel_(reviewerId),
+        protocol_version: 'REVISION_MUESTRAL_270_V3',
+        nombre_completo: record.nombre_completo,
+        correo_google: email,
+        institucion: record.institucion,
+        pais: record.pais,
+        especialidad: record.especialidad,
+        orcid: record.orcid,
+        pdf_access_status: 'GRANTED',
+        pdf_access_count: granted,
+      };
+      const participantSheet = ss.getSheetByName(R5X62.PARTICIPANTS);
+      _ensureParticipantSchema_(participantSheet);
+      participantSheet.appendRow(PARTICIPANT_HEADERS.map(function (header) { return participant[header]; }));
+      record.status = 'APPROVED';
+      record.decision_at = now;
+      record.reviewer_id = reviewerId;
+      record.reviewer_label = _reviewerLabel_(reviewerId);
+      record.pdf_access_status = 'GRANTED';
+      record.pdf_access_count = granted;
+      auditEvent = 'APPROVE_ACCESS_REQUEST';
+      auditReviewer = reviewerId;
+    }
+    requestSheet.getRange(found.rowNumber, 1, 1, ACCESS_REQUEST_HEADERS.length)
+      .setValues([ACCESS_REQUEST_HEADERS.map(function (header) { return record[header]; })]);
+    ss.getSheetByName(R5X62.AUDIT).appendRow([
+      now, auditEvent, auditReviewer, requestId, '', record.status, 3,
+    ]);
+  } finally {
+    lock.releaseLock();
+  }
+  return getAdminDashboard(adminCode);
+}
+
+
+function _reviewerState_(ss, reviewerId) {
   const assignments = _readObjects_(ss.getSheetByName(R5X62.ASSIGNMENTS))
     .filter(function (row) { return String(row.reviewer_id) === reviewerId; })
     .sort(function (a, b) { return Number(a.review_order) - Number(b.review_order); });
@@ -586,9 +717,17 @@ function getReviewerState(reviewerId, accessCode) {
 }
 
 
-function saveEvaluation(reviewerId, accessCode, payload) {
-  reviewerId = String(reviewerId || '').trim().toUpperCase();
-  _authenticateReviewer_(reviewerId, accessCode);
+function saveApplicantEvaluation(email, personalCode, payload) {
+  const ss = _spreadsheet_();
+  const request = _authenticateApplicantRequest_(ss, email, personalCode);
+  if (String(request.status) !== 'APPROVED' || !request.reviewer_id) {
+    throw new Error('Su solicitud todavía no está aprobada.');
+  }
+  return _saveEvaluationForReviewer_(String(request.reviewer_id), payload);
+}
+
+
+function _saveEvaluationForReviewer_(reviewerId, payload) {
   const clean = _validateEvaluation_(payload);
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
@@ -658,6 +797,23 @@ function getAdminDashboard(adminCode) {
   _readObjects_(ss.getSheetByName(R5X62.PARTICIPANTS)).forEach(function (row) {
     participants[String(row.reviewer_id)] = row;
   });
+  const accessRequests = _readObjects_(_ensureAccessRequestSheet_(ss)).map(function (row) {
+    return {
+      requested_at: row.requested_at instanceof Date ? row.requested_at.toISOString() : String(row.requested_at || ''),
+      request_id: String(row.request_id || ''),
+      status: String(row.status || ''),
+      nombre_completo: String(row.nombre_completo || ''),
+      correo_google: String(row.correo_google || ''),
+      institucion: String(row.institucion || ''),
+      pais: String(row.pais || ''),
+      especialidad: String(row.especialidad || ''),
+      orcid: String(row.orcid || ''),
+      decision_at: row.decision_at instanceof Date ? row.decision_at.toISOString() : String(row.decision_at || ''),
+      reviewer_id: String(row.reviewer_id || ''),
+      reviewer_label: String(row.reviewer_label || ''),
+      pdf_access_status: String(row.pdf_access_status || ''),
+    };
+  }).sort(function (a, b) { return b.requested_at.localeCompare(a.requested_at); });
   const latest = {};
   evaluations.forEach(function (row) {
     latest[String(row.assignment_id)] = row;
@@ -721,6 +877,13 @@ function getAdminDashboard(adminCode) {
   });
   return {
     progress: progress,
+    access_requests: accessRequests,
+    access_request_summary: {
+      pending: accessRequests.filter(function (row) { return row.status === 'PENDING'; }).length,
+      approved: accessRequests.filter(function (row) { return row.status === 'APPROVED'; }).length,
+      rejected: accessRequests.filter(function (row) { return row.status === 'REJECTED'; }).length,
+      available_slots: R5X62.REVIEWERS.length - Object.keys(participants).length,
+    },
     total_assignments: assignments.length,
     unique_cases: new Set(assignments.map(function (row) { return String(row.case_code); })).size,
     common_cases: Object.keys(commonCodes).length,
@@ -890,6 +1053,18 @@ function _validateParticipantProfile_(profile) {
 }
 
 
+function _validatePersonalCode_(personalCode, confirmation) {
+  const code = String(personalCode || '').trim();
+  const repeated = String(confirmation || '').trim();
+  if (code !== repeated) throw new Error('La confirmación de la clave personal no coincide.');
+  if (code.length < 8 || code.length > 64 || /\s/.test(code) ||
+      !/[A-Za-z]/.test(code) || !/\d/.test(code)) {
+    throw new Error('La clave personal debe tener entre 8 y 64 caracteres, incluir una letra y un número, y no contener espacios.');
+  }
+  return code;
+}
+
+
 function _fleissKappa_(groups, field) {
   if (!groups.length) return { pairwiseAgreement: null, kappa: null };
   const categoryTotals = {};
@@ -919,15 +1094,18 @@ function _fleissKappa_(groups, field) {
 }
 
 
-function _authenticateReviewer_(reviewerId, accessCode) {
-  reviewerId = String(reviewerId || '').trim().toUpperCase();
-  if (R5X62.REVIEWERS.indexOf(reviewerId) === -1) throw new Error('Revisor no autorizado.');
-  const expected = PropertiesService.getScriptProperties()
-    .getProperty(R5X62.REVIEWER_HASH_PREFIX + reviewerId);
-  const normalizedCode = String(accessCode || '').trim().toUpperCase();
-  if (!expected || !_constantTimeEqual_(expected, _hash_(normalizedCode))) {
-    throw new Error('Código de acceso incorrecto.');
+function _authenticateApplicantRequest_(ss, email, personalCode) {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const code = String(personalCode || '').trim();
+  const request = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)
+    ? _requestByEmail_(ss, normalizedEmail)
+    : null;
+  const expected = request ? String(request.personal_code_hash || '') : '';
+  const supplied = _hash_(String((request && request.request_id) || '') + '|' + code);
+  if (!expected || !_constantTimeEqual_(expected, supplied)) {
+    throw new Error('Correo o clave personal incorrectos.');
   }
+  return request;
 }
 
 

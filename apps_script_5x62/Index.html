@@ -19,35 +19,29 @@
       </div>
     </header>
 
-    <section id="login-panel" class="card login" aria-labelledby="login-title">
-      <h2 id="login-title">Acceso del revisor</h2>
+    <section id="access-panel" class="card login" aria-labelledby="access-title">
+      <h2 id="access-title">Participación del revisor</h2>
       <p>Le invitamos a realizar una evaluación estadística independiente de artículos científicos para validar su carácter muestral, mecanismo de selección y alcance inferencial.</p>
-      <p class="muted">Utilice el seudónimo y el código privado recibidos con la invitación. Si es su primer acceso, a continuación podrá registrar sus datos y aceptar la participación. La aplicación requiere que previamente haya iniciado sesión en Google.</p>
-      <form id="login-form" class="stack">
+      <p class="muted">No necesita un código de invitación. Si todavía no se registró, solicite participación. Si ya lo hizo, consulte el estado o ingrese con su correo Google y la clave personal que creó.</p>
+      <form id="access-form" class="stack">
         <div class="field">
-          <label for="reviewer-id">Identificador</label>
-          <select id="reviewer-id" required>
-            <option value="REVISOR-1">Revisor 1</option>
-            <option value="REVISOR-2">Revisor 2</option>
-            <option value="REVISOR-3">Revisor 3</option>
-            <option value="REVISOR-4">Revisor 4</option>
-            <option value="REVISOR-5">Revisor 5</option>
-          </select>
+          <label for="access-email">Correo de su cuenta Google</label>
+          <input id="access-email" type="email" maxlength="254" autocomplete="email" required>
         </div>
         <div class="field">
-          <label for="access-code">Código de acceso</label>
-          <input id="access-code" type="password" autocomplete="current-password" required>
+          <label for="personal-code">Clave personal</label>
+          <input id="personal-code" type="password" maxlength="64" autocomplete="current-password" required>
         </div>
-        <button class="btn" type="submit">Continuar</button>
-        <div id="login-status" class="status" role="status" aria-live="polite"></div>
+        <button class="btn" type="submit">Consultar o ingresar</button>
+        <button id="start-request" class="btn btn-secondary" type="button">Solicitar participación</button>
+        <div id="access-status" class="status" role="status" aria-live="polite"></div>
       </form>
     </section>
 
-    <section id="registration-panel" class="card login hidden" aria-labelledby="registration-title">
-      <h2 id="registration-title">Registro de participación</h2>
-      <p id="registration-reviewer" class="eyebrow">Revisor</p>
-      <p class="muted">Estos datos se guardarán únicamente en la planilla administrativa privada. No serán visibles para los demás revisores ni se incorporarán a las decisiones científicas.</p>
-      <form id="registration-form" class="stack">
+    <section id="request-panel" class="card login hidden" aria-labelledby="request-title">
+      <h2 id="request-title">Solicitar participación</h2>
+      <p class="muted">Complete sus datos, cree una clave personal y acepte el protocolo. La solicitud quedará pendiente de aprobación y todavía no dará acceso a los PDF.</p>
+      <form id="request-form" class="stack">
         <div class="form-grid">
           <div class="field full">
             <label class="required" for="participant-name">Nombre y apellido</label>
@@ -56,7 +50,7 @@
           <div class="field">
             <label class="required" for="participant-email">Correo de su cuenta Google</label>
             <input id="participant-email" type="email" maxlength="254" autocomplete="email" required>
-            <span class="muted small">Use la misma cuenta Google con la que abrió la aplicación; a ella se concederá acceso a los 62 PDF.</span>
+            <span class="muted small">Use la misma cuenta Google con la que abrió la aplicación. Si se aprueba la solicitud, esa cuenta recibirá acceso a los 62 PDF.</span>
           </div>
           <div class="field">
             <label class="required" for="participant-email-confirm">Confirmar correo Google</label>
@@ -78,17 +72,36 @@
             <label for="participant-orcid">ORCID, opcional</label>
             <input id="participant-orcid" maxlength="40" placeholder="0000-0000-0000-0000" inputmode="numeric">
           </div>
+          <div class="field">
+            <label class="required" for="request-personal-code">Crear clave personal</label>
+            <input id="request-personal-code" type="password" minlength="8" maxlength="64" autocomplete="new-password" required>
+            <span class="muted small">Entre 8 y 64 caracteres, con al menos una letra y un número, sin espacios.</span>
+          </div>
+          <div class="field">
+            <label class="required" for="request-personal-code-confirm">Confirmar clave personal</label>
+            <input id="request-personal-code-confirm" type="password" minlength="8" maxlength="64" autocomplete="new-password" required>
+          </div>
         </div>
         <label class="consent" for="accept-participation">
           <input id="accept-participation" type="checkbox" required>
-          <span>Confirmo que los datos declarados son correctos, acepto participar y realizaré las 62 evaluaciones de manera independiente, sin consultar decisiones de IA ni respuestas de otros revisores.</span>
+          <span>Confirmo que los datos declarados son correctos, acepto el protocolo y, si mi solicitud es aprobada, realizaré las 62 evaluaciones de manera independiente, sin consultar decisiones de IA ni respuestas de otros revisores.</span>
         </label>
         <div class="actions" style="justify-content:flex-start">
-          <button class="btn" type="submit">Aceptar y habilitar mi lote</button>
-          <button id="cancel-registration" class="btn btn-secondary" type="button">Volver</button>
+          <button class="btn" type="submit">Enviar solicitud</button>
+          <button id="cancel-request" class="btn btn-secondary" type="button">Volver</button>
         </div>
-        <div id="registration-status" class="status" role="status" aria-live="polite"></div>
+        <div id="request-status" class="status" role="status" aria-live="polite"></div>
       </form>
+    </section>
+
+    <section id="request-result-panel" class="card login hidden" aria-labelledby="request-result-title">
+      <h2 id="request-result-title">Solicitud recibida</h2>
+      <div class="protocol">
+        <strong>Estado: pendiente de aprobación</strong>
+        <p>Su solicitud <span id="request-result-id"></span> fue guardada. Regrese a esta aplicación y use su correo y clave personal para consultar el estado.</p>
+      </div>
+      <p class="muted">Conserve su clave personal: no se guarda en texto legible y no puede recuperarse automáticamente.</p>
+      <button id="return-to-access" class="btn" type="button">Volver al acceso</button>
     </section>
 
     <section id="review-app" class="hidden">
@@ -236,7 +249,7 @@
       'mecanismo_seleccion', 'reconoce_limitaciones', 'extrapola',
       'paginas_evidencia', 'evidencia_breve', 'justificacion', 'confianza'
     ];
-    const state = { reviewerId: '', reviewerLabel: '', accessCode: '', data: null, currentId: '' };
+    const state = { email: '', personalCode: '', reviewerId: '', reviewerLabel: '', data: null, currentId: '' };
 
     function callServer(name, ...args) {
       return new Promise((resolve, reject) => {
@@ -340,7 +353,11 @@
     }
 
     async function refresh(preferredId = state.currentId) {
-      state.data = await callServer('getReviewerState', state.reviewerId, state.accessCode);
+      const access = await callServer('getApplicantAccess', state.email, state.personalCode);
+      if (access.status !== 'APPROVED' || !access.data) throw new Error('Su solicitud todavía no está aprobada.');
+      state.reviewerId = access.reviewer_id;
+      state.reviewerLabel = access.reviewer_label;
+      state.data = access.data;
       if (state.data.total !== 62) throw new Error(`Lote incompleto: ${state.data.total}/62`);
       chooseInitialItem(preferredId);
       renderSummary();
@@ -355,9 +372,10 @@
       renderSummary();
       renderQueue();
       renderCase();
-      localStorage.setItem('r5x62_reviewer_id', state.reviewerId);
-      document.getElementById('login-panel').classList.add('hidden');
-      document.getElementById('registration-panel').classList.add('hidden');
+      localStorage.setItem('r5x62_email', state.email);
+      document.getElementById('access-panel').classList.add('hidden');
+      document.getElementById('request-panel').classList.add('hidden');
+      document.getElementById('request-result-panel').classList.add('hidden');
       document.getElementById('review-app').classList.remove('hidden');
     }
 
@@ -375,7 +393,7 @@
       setStatus('save-status', status === 'FINAL' ? 'Enviando evaluación final…' : 'Guardando borrador…');
       try {
         const current = state.currentId;
-        await callServer('saveEvaluation', state.reviewerId, state.accessCode, collectPayload(status));
+        await callServer('saveApplicantEvaluation', state.email, state.personalCode, collectPayload(status));
         await refresh(current);
         setStatus('save-status', status === 'FINAL' ? 'Evaluación final registrada.' : 'Borrador guardado.', 'success');
         if (status === 'FINAL') {
@@ -389,31 +407,41 @@
       }
     }
 
-    document.getElementById('login-form').addEventListener('submit', async event => {
+    document.getElementById('access-form').addEventListener('submit', async event => {
       event.preventDefault();
-      const reviewerId = document.getElementById('reviewer-id').value;
-      const accessCode = document.getElementById('access-code').value.trim();
-      setStatus('login-status', 'Verificando acceso…');
+      const email = document.getElementById('access-email').value.trim();
+      const personalCode = document.getElementById('personal-code').value.trim();
+      setStatus('access-status', 'Consultando solicitud…');
       try {
-        state.reviewerId = reviewerId;
-        state.accessCode = accessCode;
-        const access = await callServer('getAccessStatus', reviewerId, accessCode);
-        state.reviewerLabel = access.reviewer_label;
-        if (access.registered) {
-          enterReviewApp(await callServer('getReviewerState', reviewerId, accessCode));
-        } else {
-          document.getElementById('registration-reviewer').textContent = access.reviewer_label;
-          document.getElementById('login-panel').classList.add('hidden');
-          document.getElementById('registration-panel').classList.remove('hidden');
-          document.getElementById('participant-name').focus();
+        state.email = email;
+        state.personalCode = personalCode;
+        const access = await callServer('getApplicantAccess', email, personalCode);
+        localStorage.setItem('r5x62_email', email);
+        if (access.status === 'PENDING') {
+          setStatus('access-status', `Solicitud ${access.request_id}: pendiente de aprobación.`, 'success');
+          return;
         }
+        if (access.status === 'REJECTED') {
+          setStatus('access-status', `Solicitud ${access.request_id}: no aprobada. Contacte al coordinador si necesita una revisión.`, 'error');
+          return;
+        }
+        if (access.status !== 'APPROVED' || !access.data) throw new Error('Estado de solicitud no reconocido.');
+        state.reviewerId = access.reviewer_id;
+        state.reviewerLabel = access.reviewer_label;
+        enterReviewApp(access.data);
       } catch (error) {
-        state.accessCode = '';
-        setStatus('login-status', error.message, 'error');
+        state.personalCode = '';
+        setStatus('access-status', error.message, 'error');
       }
     });
 
-    document.getElementById('registration-form').addEventListener('submit', async event => {
+    document.getElementById('start-request').addEventListener('click', () => {
+      document.getElementById('access-panel').classList.add('hidden');
+      document.getElementById('request-panel').classList.remove('hidden');
+      document.getElementById('participant-name').focus();
+    });
+
+    document.getElementById('request-form').addEventListener('submit', async event => {
       event.preventDefault();
       const profile = {
         nombre_completo: document.getElementById('participant-name').value.trim(),
@@ -424,22 +452,36 @@
         especialidad: document.getElementById('participant-specialty').value.trim(),
         orcid: document.getElementById('participant-orcid').value.trim()
       };
-      setStatus('registration-status', 'Registrando la aceptación y habilitando los PDF…');
+      const personalCode = document.getElementById('request-personal-code').value.trim();
+      const confirmation = document.getElementById('request-personal-code-confirm').value.trim();
+      setStatus('request-status', 'Guardando solicitud…');
       try {
         const accepted = document.getElementById('accept-participation').checked;
-        const data = await callServer('registerParticipation', state.reviewerId, state.accessCode, profile, accepted);
-        enterReviewApp(data);
+        const result = await callServer('submitAccessRequest', profile, personalCode, confirmation, accepted);
+        state.email = result.correo_google;
+        localStorage.setItem('r5x62_email', state.email);
+        document.getElementById('request-personal-code').value = '';
+        document.getElementById('request-personal-code-confirm').value = '';
+        document.getElementById('request-result-id').textContent = result.request_id;
+        document.getElementById('request-panel').classList.add('hidden');
+        document.getElementById('request-result-panel').classList.remove('hidden');
       } catch (error) {
-        setStatus('registration-status', error.message, 'error');
+        setStatus('request-status', error.message, 'error');
       }
     });
 
-    document.getElementById('cancel-registration').addEventListener('click', () => {
-      state.accessCode = '';
-      document.getElementById('access-code').value = '';
-      document.getElementById('registration-panel').classList.add('hidden');
-      document.getElementById('login-panel').classList.remove('hidden');
-      setStatus('registration-status', '');
+    document.getElementById('cancel-request').addEventListener('click', () => {
+      document.getElementById('request-panel').classList.add('hidden');
+      document.getElementById('access-panel').classList.remove('hidden');
+      setStatus('request-status', '');
+    });
+
+    document.getElementById('return-to-access').addEventListener('click', () => {
+      document.getElementById('access-email').value = state.email;
+      document.getElementById('personal-code').value = '';
+      document.getElementById('request-result-panel').classList.add('hidden');
+      document.getElementById('access-panel').classList.remove('hidden');
+      document.getElementById('personal-code').focus();
     });
 
     document.getElementById('save-draft').addEventListener('click', () => save('BORRADOR'));
@@ -449,19 +491,17 @@
       if (next) selectItem(next.assignment_id);
     });
     document.getElementById('logout').addEventListener('click', () => {
-      state.accessCode = '';
+      state.personalCode = '';
       state.data = null;
-      document.getElementById('access-code').value = '';
+      document.getElementById('personal-code').value = '';
       document.getElementById('review-app').classList.add('hidden');
-      document.getElementById('registration-panel').classList.add('hidden');
-      document.getElementById('login-panel').classList.remove('hidden');
+      document.getElementById('request-panel').classList.add('hidden');
+      document.getElementById('request-result-panel').classList.add('hidden');
+      document.getElementById('access-panel').classList.remove('hidden');
     });
 
-    const queryReviewer = new URLSearchParams(location.search).get('reviewer');
-    const remembered = localStorage.getItem('r5x62_reviewer_id');
-    const validReviewers = ['REVISOR-1', 'REVISOR-2', 'REVISOR-3', 'REVISOR-4', 'REVISOR-5'];
-    if (validReviewers.includes(queryReviewer)) document.getElementById('reviewer-id').value = queryReviewer;
-    else if (validReviewers.includes(remembered)) document.getElementById('reviewer-id').value = remembered;
+    const rememberedEmail = localStorage.getItem('r5x62_email');
+    if (rememberedEmail) document.getElementById('access-email').value = rememberedEmail;
   </script>
 </body>
 </html>
