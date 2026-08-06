@@ -65,6 +65,10 @@ páginas de evidencia, evidencia textual breve, justificación y confianza.
 - panel administrativo de avance;
 - acuerdo por pares y kappa de Fleiss sobre los diez casos comunes;
 - exportación consolidada de las 310 asignaciones.
+- credenciales recuperables e invitaciones en hojas ocultas de una planilla
+  administrativa no compartida, con hashes de acceso en propiedades del script;
+- autoprueba del administrador para verificar cinco accesos y la integridad del
+  diseño sin exponer códigos en los registros de ejecución.
 
 ## Generación reproducible
 
@@ -78,5 +82,6 @@ python3 scripts/build_review_5x62.py \
 ```
 
 La semilla predeterminada es `20260806`. Los PDF y el manifiesto que contiene
-las decisiones IA deben mantenerse fuera de Git y compartirse únicamente desde
-una carpeta privada con las cinco cuentas autorizadas.
+las decisiones IA deben mantenerse fuera de Git. La carpeta maestra permanece
+privada y cada cuenta recibe permiso de lectura solamente sobre sus 62 archivos
+asignados, incluidos los diez casos comunes.

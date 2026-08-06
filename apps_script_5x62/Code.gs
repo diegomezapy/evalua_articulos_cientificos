@@ -17,6 +17,8 @@ const R5X62 = Object.freeze({
   FOLDER_PROP: 'R5X62_PDF_FOLDER_ID',
   ADMIN_HASH_PROP: 'R5X62_ADMIN_HASH',
   REVIEWER_HASH_PREFIX: 'R5X62_REVIEWER_HASH_',
+  PRIVATE_CREDENTIALS: 'credenciales_privadas',
+  PRIVATE_INVITATIONS: 'invitaciones_privadas',
   ASSIGNMENTS: 'asignaciones',
   EVALUATIONS: 'evaluaciones',
   PARTICIPANTS: 'participantes',
@@ -135,12 +137,14 @@ function setup_inicial() {
   props.setProperty(R5X62.SHEET_PROP, ss.getId());
 
   const credentials = _rotateCredentials_();
+  const privateSheets = _storePrivateAccessSheets_(credentials);
   const result = {
     sheet_id: ss.getId(),
     assignments: assignments.length,
     unique_pdfs: Object.keys(fileCache).length,
-    credentials: credentials,
-    warning: 'Guarde estas credenciales ahora. Solo se almacenan sus hashes.',
+    private_credentials_sheet: privateSheets.credentials_sheet,
+    private_invitations_sheet: privateSheets.invitations_sheet,
+    warning: 'Las credenciales se guardaron en hojas ocultas de la planilla privada.',
   };
   Logger.log(JSON.stringify(result));
   return result;
@@ -149,19 +153,90 @@ function setup_inicial() {
 
 function rotarCredenciales(adminCode) {
   _authenticateAdmin_(adminCode);
-  return _rotateCredentials_();
+  return _rotateAndStoreCredentials_();
 }
 
 
 function rotarCredencialesDesdeEditor() {
+  _assertOwnerEditor_();
+  return _rotateAndStoreCredentials_();
+}
+
+
+function validarDespliegueDesdeEditor() {
+  _assertOwnerEditor_();
+  const ss = _spreadsheet_();
+  const credentialSheet = ss.getSheetByName(R5X62.PRIVATE_CREDENTIALS);
+  const invitationSheet = ss.getSheetByName(R5X62.PRIVATE_INVITATIONS);
+  if (!credentialSheet || !invitationSheet) {
+    throw new Error('Faltan las hojas privadas de credenciales o invitaciones.');
+  }
+  const credentials = _readObjects_(credentialSheet);
+  const admin = credentials.find(function (row) {
+    return String(row.role) === 'ADMIN';
+  });
+  if (!admin) throw new Error('No se encontró la credencial administrativa privada.');
+  _authenticateAdmin_(String(admin.access_code || ''));
+
+  const assignments = _readObjects_(ss.getSheetByName(R5X62.ASSIGNMENTS));
+  const reviewerChecks = R5X62.REVIEWERS.map(function (reviewer) {
+    const credential = credentials.find(function (row) {
+      return String(row.role) === 'REVISOR' && String(row.reviewer_id) === reviewer;
+    });
+    if (!credential) throw new Error('Falta la credencial privada de ' + reviewer + '.');
+    _authenticateReviewer_(reviewer, String(credential.access_code || ''));
+    const assigned = assignments.filter(function (row) {
+      return String(row.reviewer_id) === reviewer;
+    }).length;
+    if (assigned !== 62) {
+      throw new Error(reviewer + ' tiene ' + assigned + ' asignaciones, se esperaban 62.');
+    }
+    return { reviewer_id: reviewer, authenticated: true, assignments: assigned };
+  });
+  const uniqueCases = new Set(assignments.map(function (row) {
+    return String(row.case_code);
+  })).size;
+  const commonCases = new Set(assignments.filter(function (row) {
+    return _asBool_(row.es_comun);
+  }).map(function (row) {
+    return String(row.case_code);
+  })).size;
+  if (assignments.length !== 310 || uniqueCases !== 270 || commonCases !== 10) {
+    throw new Error('El diseño cargado no coincide con 310 asignaciones, 270 casos y 10 comunes.');
+  }
+  const result = {
+    ok: true,
+    admin_authenticated: true,
+    reviewers_authenticated: reviewerChecks.length,
+    reviewers: reviewerChecks,
+    total_assignments: assignments.length,
+    unique_cases: uniqueCases,
+    common_cases: commonCases,
+    private_sheets_hidden: credentialSheet.isSheetHidden() && invitationSheet.isSheetHidden(),
+  };
+  Logger.log(JSON.stringify(result));
+  return result;
+}
+
+
+function _assertOwnerEditor_() {
   const active = String(Session.getActiveUser().getEmail() || '').toLowerCase();
   const owner = String(Session.getEffectiveUser().getEmail() || '').toLowerCase();
   if (!active || active !== owner) {
     throw new Error('Esta función solo puede ejecutarla el propietario desde el editor.');
   }
-  const credentials = _rotateCredentials_();
-  Logger.log(JSON.stringify(credentials));
-  return credentials;
+}
+
+
+function _rotateAndStoreCredentials_() {
+  const privateSheets = _storePrivateAccessSheets_(_rotateCredentials_());
+  const result = {
+    rotated: true,
+    private_credentials_sheet: privateSheets.credentials_sheet,
+    private_invitations_sheet: privateSheets.invitations_sheet,
+  };
+  Logger.log(JSON.stringify(result));
+  return result;
 }
 
 
@@ -174,8 +249,78 @@ function _rotateCredentials_() {
     credentials.reviewers[reviewer] = code;
     props.setProperty(R5X62.REVIEWER_HASH_PREFIX + reviewer, _hash_(code));
   });
-  Logger.log(JSON.stringify(credentials));
   return credentials;
+}
+
+
+function _storePrivateAccessSheets_(credentials) {
+  const generatedAt = new Date().toISOString();
+  const appUrl = ScriptApp.getService().getUrl() || '';
+  const reviewerRecords = R5X62.REVIEWERS.map(function (reviewer) {
+    return {
+      reviewer_id: reviewer,
+      reviewer_label: _reviewerLabel_(reviewer),
+      access_code: credentials.reviewers[reviewer],
+      invitation_url: appUrl + '?reviewer=' + encodeURIComponent(reviewer),
+    };
+  });
+  const credentialRows = [[
+    generatedAt, 'ADMIN', '', 'Administrador', credentials.admin,
+    appUrl + '?view=admin',
+  ]].concat(reviewerRecords.map(function (record) {
+    return [
+      generatedAt, 'REVISOR', record.reviewer_id, record.reviewer_label,
+      record.access_code, record.invitation_url,
+    ];
+  }));
+  const invitationRows = reviewerRecords.map(function (record) {
+    const message = [
+      'DESTINATARIO: [NOMBRE DEL ESTADÍSTICO]',
+      'CORREO GOOGLE AUTORIZADO: [CORREO]',
+      'FECHA LÍMITE: [AAAA-MM-DD]',
+      '',
+      'Hola. Le invito a participar como revisor/a estadístico/a independiente',
+      'de 62 artículos científicos sobre estudios sudamericanos basados en muestras.',
+      '',
+      'Seudónimo: ' + record.reviewer_label,
+      'Código privado: ' + record.access_code,
+      'Aplicación: ' + record.invitation_url,
+      '',
+      'Ingrese con el seudónimo y el código, acepte el protocolo y evalúe cada PDF.',
+      'Puede guardar borradores. Use “Enviar evaluación final” únicamente cuando',
+      'la revisión esté completa, porque el registro quedará bloqueado.',
+      '',
+      'No comparta el código, los PDF ni sus respuestas con otros revisores.',
+      'Si un PDF no abre o no corresponde, comuníquelo al coordinador.',
+      '',
+      'Muchas gracias por su colaboración.',
+      'Diego Meza',
+    ].join('\n');
+    return [record.reviewer_id, record.reviewer_label, message];
+  });
+  const ss = _spreadsheet_();
+  _writePrivateSheet_(ss, R5X62.PRIVATE_CREDENTIALS,
+    ['generated_at', 'role', 'reviewer_id', 'reviewer_label', 'access_code', 'url'],
+    credentialRows);
+  _writePrivateSheet_(ss, R5X62.PRIVATE_INVITATIONS,
+    ['reviewer_id', 'reviewer_label', 'whatsapp_message'], invitationRows);
+  return {
+    credentials_sheet: R5X62.PRIVATE_CREDENTIALS,
+    invitations_sheet: R5X62.PRIVATE_INVITATIONS,
+  };
+}
+
+
+function _writePrivateSheet_(ss, sheetName, headers, rows) {
+  let sheet = ss.getSheetByName(sheetName);
+  if (!sheet) sheet = ss.insertSheet(sheetName);
+  if (sheet.isSheetHidden()) sheet.showSheet();
+  sheet.clear();
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  if (rows.length) sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+  sheet.setFrozenRows(1);
+  sheet.autoResizeColumns(1, headers.length);
+  sheet.hideSheet();
 }
 
 

@@ -12,7 +12,8 @@ en Google Sheets.
 - Las respuestas de los otros revisores no se muestran.
 - Los registros finales quedan bloqueados.
 - Las credenciales se almacenan como hashes SHA-256 en las propiedades del
-  proyecto, no en el código ni en la hoja.
+  proyecto. Los códigos recuperables quedan únicamente en dos hojas ocultas de
+  la planilla administrativa privada, nunca en el código ni en los registros.
 - Todas las altas y actualizaciones quedan registradas en `auditoria`.
 
 ## Preparación privada en Drive
@@ -30,8 +31,9 @@ revision_humana_5x62_2026/
 
 1. Cree una carpeta privada en Google Drive.
 2. Suba los 270 archivos de `PDF_PRIVADOS/` a una única subcarpeta.
-3. Comparta esa subcarpeta como lector únicamente con las cinco cuentas Google
-   de los revisores. No use acceso público si no es indispensable.
+3. No comparta la subcarpeta completa con los revisores. Comparta como lector
+   únicamente los 62 PDF asignados a cada cuenta Google. Los diez casos comunes
+   se comparten con las cinco cuentas.
 4. Suba `asignaciones_5x62.csv` a Drive, también con acceso restringido.
 5. No suba ni comparta `manifiesto_admin_5x62.csv`; contiene la reserva IA.
 
@@ -63,14 +65,17 @@ Los IDs se obtienen de las URL de Drive. No se deben guardar en GitHub.
 
 1. En el editor de Apps Script, ejecute `setup_inicial()` una sola vez.
 2. Autorice lectura de Drive y escritura en Sheets.
-3. Copie inmediatamente el resultado y el registro de ejecución. Contienen:
-   - código de administrador;
-   - códigos de `REVISOR-1` a `REVISOR-5`;
-   - ID de la hoja central creada.
-4. Guarde los códigos en un gestor seguro. La aplicación conserva solo hashes.
+3. El resultado informa el ID de la hoja central creada, sin revelar códigos en
+   el registro de ejecución.
+4. Abra la planilla administrativa y muestre temporalmente las hojas ocultas
+   `credenciales_privadas` e `invitaciones_privadas` para copiar los códigos y
+   mensajes. Vuelva a ocultarlas y no comparta esta planilla.
 5. Si pierde los códigos, ejecute `rotarCredencialesDesdeEditor()` como
    propietario desde el editor de Apps Script. La rotación invalida todos los
    códigos anteriores.
+6. Ejecute `validarDespliegueDesdeEditor()`. Debe confirmar cinco accesos
+   autenticados, 62 asignaciones por revisor, 310 asignaciones, 270 casos únicos,
+   diez casos comunes y ambas hojas privadas ocultas, sin mostrar los códigos.
 
 ## Despliegue
 
@@ -82,7 +87,7 @@ Después de inicializar:
    dominios diferentes, normalmente será “cualquier usuario”; los códigos de la
    aplicación seguirán siendo obligatorios.
 4. Verifique que los revisores hayan iniciado sesión en Google con la cuenta a
-   la que se compartieron los PDF.
+   la que se compartieron sus PDF asignados.
 5. Abra la URL y pruebe cada seudónimo con su código. La primera entrada exige
    confirmar la participación bajo el protocolo.
 
