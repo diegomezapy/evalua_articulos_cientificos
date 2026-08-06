@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <?!= include('styles'); ?>
+</head>
+<body>
+  <main class="shell">
+    <header class="card hero">
+      <div class="hero-row">
+        <div>
+          <p class="eyebrow">Validación humana independiente</p>
+          <h1>Revisión estadística de artículos</h1>
+          <p>Cada participante accede con un seudónimo y dispone de un lote ciego de 62 artículos. Las decisiones de IA y las respuestas de los demás evaluadores permanecen ocultas.</p>
+        </div>
+        <a class="btn btn-secondary" href="<?= appUrl ?>?view=admin" target="_blank" rel="noopener">Control administrativo</a>
+      </div>
+    </header>
+
+    <section id="login-panel" class="card login" aria-labelledby="login-title">
+      <h2 id="login-title">Acceso del revisor</h2>
+      <p>Le invitamos a realizar una evaluación estadística independiente de artículos científicos para validar su carácter muestral, mecanismo de selección y alcance inferencial.</p>
+      <p class="muted">Utilice el seudónimo y el código privado recibidos con la invitación. Su nombre real no se registra en esta aplicación.</p>
+      <form id="login-form" class="stack">
+        <div class="field">
+          <label for="reviewer-id">Identificador</label>
+          <select id="reviewer-id" required>
+            <option value="REVISOR-1">Revisor 1</option>
+            <option value="REVISOR-2">Revisor 2</option>
+            <option value="REVISOR-3">Revisor 3</option>
+            <option value="REVISOR-4">Revisor 4</option>
+            <option value="REVISOR-5">Revisor 5</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="access-code">Código de acceso</label>
+          <input id="access-code" type="password" autocomplete="current-password" required>
+        </div>
+        <label class="consent" for="accept-participation">
+          <input id="accept-participation" type="checkbox" required>
+          <span>Confirmo mi disponibilidad, acepto participar y realizaré las 62 evaluaciones de manera independiente, sin consultar decisiones de IA ni respuestas de otros revisores.</span>
+        </label>
+        <button class="btn" type="submit">Ingresar al lote</button>
+        <div id="login-status" class="status" role="status" aria-live="polite"></div>
+      </form>
+    </section>
+
+    <section id="review-app" class="hidden">
+      <div class="card hero" style="margin-top:16px">
+        <div class="progress-head">
+          <div>
+            <p class="eyebrow" id="active-reviewer">Revisor</p>
+            <strong id="progress-label">0 de 62 finalizados</strong>
+          </div>
+          <button id="logout" class="btn btn-secondary" type="button">Cerrar sesión</button>
+        </div>
+        <div class="progress-track" aria-hidden="true"><div id="progress-bar" class="progress-bar" style="width:0"></div></div>
+        <div class="summary-grid">
+          <div class="metric"><span class="metric-label">Asignados</span><span id="metric-total" class="metric-value">62</span></div>
+          <div class="metric"><span class="metric-label">Finalizados</span><span id="metric-final" class="metric-value">0</span></div>
+          <div class="metric"><span class="metric-label">Borradores</span><span id="metric-draft" class="metric-value">0</span></div>
+          <div class="metric"><span class="metric-label">Pendientes</span><span id="metric-pending" class="metric-value">62</span></div>
+        </div>
+      </div>
+
+      <div class="workspace">
+        <aside class="card sidebar">
+          <div class="section-head">
+            <h2>Mi lote</h2>
+            <button id="next-pending" class="btn btn-secondary" type="button">Siguiente pendiente</button>
+          </div>
+          <div id="queue" class="queue" aria-label="Artículos asignados"></div>
+        </aside>
+
+        <div class="main">
+          <section class="card case-head">
+            <p class="eyebrow" id="case-code">Caso</p>
+            <h2 id="case-title">Seleccione un artículo</h2>
+            <p id="case-meta" class="case-meta"></p>
+            <div class="actions" style="justify-content:flex-start;margin-top:12px">
+              <a id="open-pdf" class="btn btn-secondary" href="#" target="_blank" rel="noopener">Abrir PDF en otra pestaña</a>
+              <a id="open-doi" class="btn btn-secondary hidden" href="#" target="_blank" rel="noopener">Abrir DOI</a>
+            </div>
+          </section>
+
+          <section class="card viewer" aria-label="Visor PDF">
+            <iframe id="pdf-frame" title="Artículo PDF"></iframe>
+          </section>
+
+          <section class="card form-card">
+            <h2>Formulario de evaluación</h2>
+            <div class="protocol">
+              Evalúe lo que el texto permite verificar. No convierta ausencia de reporte en muestreo no probabilístico. Use “No reportado” o “Incierto” cuando corresponda y registre páginas y evidencia breve.
+            </div>
+            <div id="locked-note" class="lock-note hidden" style="margin-top:14px">Esta evaluación fue enviada como final y quedó bloqueada.</div>
+            <form id="evaluation-form">
+              <section class="form-section">
+                <h3>1. Identidad y alcance geográfico</h3>
+                <div class="form-grid">
+                  <div class="field">
+                    <label class="required" for="identidad_pdf">¿El PDF corresponde al artículo listado?</label>
+                    <select id="identidad_pdf" name="identidad_pdf"><option value="">Seleccione</option><option value="SI">Sí</option><option value="NO">No</option><option value="INCIERTO">Incierto</option></select>
+                  </div>
+                  <div class="field">
+                    <label class="required" for="estudio_sudamericano">¿Las unidades o el fenómeno estudiado pertenecen a Sudamérica?</label>
+                    <select id="estudio_sudamericano" name="estudio_sudamericano"><option value="">Seleccione</option><option value="SI">Sí</option><option value="NO">No</option><option value="INCIERTO">Incierto</option></select>
+                  </div>
+                  <div class="field full">
+                    <label for="pais_territorio">País o territorio realmente estudiado</label>
+                    <input id="pais_territorio" name="pais_territorio" maxlength="250" placeholder="Ej.: Paraguay; Brasil; multinacional; no identificable">
+                  </div>
+                </div>
+              </section>
+
+              <section class="form-section">
+                <h3>2. Carácter muestral</h3>
+                <div class="form-grid">
+                  <div class="field">
+                    <label class="required" for="estudio_muestral">¿Es un estudio primario basado en una muestra?</label>
+                    <select id="estudio_muestral" name="estudio_muestral"><option value="">Seleccione</option><option value="SI">Sí</option><option value="NO">No</option><option value="INCIERTO">Incierto</option></select>
+                  </div>
+                  <div class="field">
+                    <label class="required" for="mecanismo_seleccion">Mecanismo de selección</label>
+                    <select id="mecanismo_seleccion" name="mecanismo_seleccion"><option value="">Seleccione</option><option value="PROBABILISTICO">Probabilístico</option><option value="NO_PROBABILISTICO">No probabilístico</option><option value="CENSO">Censo</option><option value="NO_REPORTADO">No reportado</option><option value="NO_APLICA">No aplica</option><option value="INCIERTO">Incierto</option></select>
+                  </div>
+                  <div class="field">
+                    <label for="unidad_observada">Unidad observada</label>
+                    <input id="unidad_observada" name="unidad_observada" maxlength="500" placeholder="Personas, hogares, municipios, registros, especímenes…">
+                  </div>
+                  <div class="field">
+                    <label for="tamano_muestral">Tamaño muestral</label>
+                    <input id="tamano_muestral" name="tamano_muestral" maxlength="250" placeholder="Número y denominador, o “No reportado”">
+                  </div>
+                </div>
+              </section>
+
+              <section class="form-section">
+                <h3>3. Limitaciones y extrapolación</h3>
+                <div class="form-grid">
+                  <div class="field">
+                    <label class="required" for="reconoce_limitaciones">¿Reconoce límites de selección, representatividad o generalización?</label>
+                    <select id="reconoce_limitaciones" name="reconoce_limitaciones"><option value="">Seleccione</option><option value="SI">Sí</option><option value="NO">No</option><option value="INCIERTO">Incierto</option><option value="NO_APLICA">No aplica</option></select>
+                  </div>
+                  <div class="field">
+                    <label class="required" for="extrapola">¿Extrapola más allá de las unidades observadas?</label>
+                    <select id="extrapola" name="extrapola"><option value="">Seleccione</option><option value="SI">Sí</option><option value="NO">No</option><option value="INCIERTO">Incierto</option><option value="NO_APLICA">No aplica</option></select>
+                  </div>
+                </div>
+              </section>
+
+              <section class="form-section">
+                <h3>4. Evidencia y confianza</h3>
+                <div class="form-grid">
+                  <div class="field">
+                    <label class="required" for="paginas_evidencia">Página(s) de evidencia</label>
+                    <input id="paginas_evidencia" name="paginas_evidencia" maxlength="250" placeholder="Ej.: 4–5, 12">
+                  </div>
+                  <div class="field">
+                    <label class="required" for="confianza">Confianza del juicio</label>
+                    <select id="confianza" name="confianza"><option value="">Seleccione</option><option value="ALTA">Alta</option><option value="MEDIA">Media</option><option value="BAJA">Baja</option></select>
+                  </div>
+                  <div class="field full">
+                    <label class="required" for="evidencia_breve">Evidencia textual breve</label>
+                    <textarea id="evidencia_breve" name="evidencia_breve" maxlength="2000" placeholder="Cita corta o paráfrasis verificable"></textarea>
+                  </div>
+                  <div class="field full">
+                    <label class="required" for="justificacion">Justificación del juicio</label>
+                    <textarea id="justificacion" name="justificacion" class="long" maxlength="3000"></textarea>
+                  </div>
+                </div>
+              </section>
+
+              <div class="actions" style="justify-content:flex-start">
+                <button id="save-draft" class="btn btn-secondary" type="button">Guardar borrador</button>
+                <button id="submit-final" class="btn" type="button">Enviar evaluación final</button>
+              </div>
+              <div id="save-status" class="status" role="status" aria-live="polite"></div>
+            </form>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const APP_URL = <?!= JSON.stringify(appUrl) ?>;
+    const FORM_FIELDS = [
+      'identidad_pdf', 'estudio_sudamericano', 'pais_territorio',
+      'estudio_muestral', 'unidad_observada', 'tamano_muestral',
+      'mecanismo_seleccion', 'reconoce_limitaciones', 'extrapola',
+      'paginas_evidencia', 'evidencia_breve', 'justificacion', 'confianza'
+    ];
+    const state = { reviewerId: '', accessCode: '', data: null, currentId: '' };
+
+    function callServer(name, ...args) {
+      return new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(error => reject(new Error(error && error.message ? error.message : String(error))))
+          [name](...args);
+      });
+    }
+
+    function setStatus(id, message, tone = '') {
+      const node = document.getElementById(id);
+      node.textContent = message || '';
+      node.className = `status ${tone}`.trim();
+    }
+
+    function currentItem() {
+      return state.data?.items.find(item => item.assignment_id === state.currentId) || null;
+    }
+
+    function evaluationStatus(item) {
+      if (!item.evaluation) return 'pending';
+      return item.evaluation.estado === 'FINAL' ? 'final' : 'draft';
+    }
+
+    function renderSummary() {
+      const total = state.data.total;
+      const finalCount = state.data.finalizados;
+      const draftCount = state.data.borradores;
+      document.getElementById('active-reviewer').textContent = state.data.reviewer_label;
+      document.getElementById('progress-label').textContent = `${finalCount} de ${total} finalizados`;
+      document.getElementById('progress-bar').style.width = `${total ? finalCount / total * 100 : 0}%`;
+      document.getElementById('metric-total').textContent = total;
+      document.getElementById('metric-final').textContent = finalCount;
+      document.getElementById('metric-draft').textContent = draftCount;
+      document.getElementById('metric-pending').textContent = total - finalCount - draftCount;
+    }
+
+    function renderQueue() {
+      const target = document.getElementById('queue');
+      target.replaceChildren();
+      state.data.items.forEach(item => {
+        const status = evaluationStatus(item);
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `queue-item ${status} ${item.assignment_id === state.currentId ? 'active' : ''}`;
+        const badge = document.createElement('span');
+        badge.className = `badge ${status}`;
+        badge.textContent = status === 'final' ? 'Final' : status === 'draft' ? 'Borrador' : 'Pendiente';
+        const label = document.createElement('strong');
+        label.textContent = `${String(item.review_order).padStart(2, '0')} · ${item.case_code}`;
+        const title = document.createElement('div');
+        title.className = 'queue-title';
+        title.textContent = item.titulo;
+        const meta = document.createElement('div');
+        meta.className = 'queue-meta';
+        meta.textContent = `${item.anio || 's/f'} · ${item.macroarea}`;
+        button.append(label, document.createTextNode(' '), badge, title, meta);
+        button.addEventListener('click', () => selectItem(item.assignment_id));
+        target.appendChild(button);
+      });
+    }
+
+    function hydrateForm(item) {
+      const evaluation = item.evaluation || {};
+      FORM_FIELDS.forEach(field => {
+        document.getElementById(field).value = evaluation[field] || '';
+      });
+      const locked = evaluation.estado === 'FINAL';
+      document.getElementById('locked-note').classList.toggle('hidden', !locked);
+      document.querySelectorAll('#evaluation-form input, #evaluation-form select, #evaluation-form textarea, #evaluation-form button')
+        .forEach(control => { control.disabled = locked; });
+      setStatus('save-status', locked ? 'Evaluación final registrada.' : '', locked ? 'success' : '');
+    }
+
+    function renderCase() {
+      const item = currentItem();
+      if (!item) return;
+      document.getElementById('case-code').textContent = `${String(item.review_order).padStart(2, '0')} · ${item.case_code}`;
+      document.getElementById('case-title').textContent = item.titulo;
+      document.getElementById('case-meta').textContent = [item.revista, item.anio, item.macroarea].filter(Boolean).join(' · ');
+      document.getElementById('pdf-frame').src = item.pdf_preview_url;
+      document.getElementById('open-pdf').href = item.pdf_preview_url.replace('/preview', '/view');
+      const doi = document.getElementById('open-doi');
+      doi.classList.toggle('hidden', !item.doi);
+      doi.href = item.doi || '#';
+      hydrateForm(item);
+    }
+
+    function selectItem(assignmentId) {
+      state.currentId = assignmentId;
+      renderQueue();
+      renderCase();
+      window.scrollTo({ top: document.getElementById('review-app').offsetTop, behavior: 'smooth' });
+    }
+
+    function chooseInitialItem(preferredId = '') {
+      const preferred = state.data.items.find(item => item.assignment_id === preferredId);
+      const pending = state.data.items.find(item => evaluationStatus(item) !== 'final');
+      state.currentId = (preferred || pending || state.data.items[0]).assignment_id;
+    }
+
+    async function refresh(preferredId = state.currentId) {
+      state.data = await callServer('getReviewerState', state.reviewerId, state.accessCode);
+      if (state.data.total !== 62) throw new Error(`Lote incompleto: ${state.data.total}/62`);
+      chooseInitialItem(preferredId);
+      renderSummary();
+      renderQueue();
+      renderCase();
+    }
+
+    function collectPayload(status) {
+      const item = currentItem();
+      const payload = { assignment_id: item.assignment_id, case_code: item.case_code, estado: status };
+      FORM_FIELDS.forEach(field => { payload[field] = document.getElementById(field).value.trim(); });
+      return payload;
+    }
+
+    async function save(status) {
+      const button = status === 'FINAL' ? document.getElementById('submit-final') : document.getElementById('save-draft');
+      if (status === 'FINAL' && !window.confirm('La evaluación final quedará bloqueada. ¿Desea enviarla?')) return;
+      button.disabled = true;
+      setStatus('save-status', status === 'FINAL' ? 'Enviando evaluación final…' : 'Guardando borrador…');
+      try {
+        const current = state.currentId;
+        await callServer('saveEvaluation', state.reviewerId, state.accessCode, collectPayload(status));
+        await refresh(current);
+        setStatus('save-status', status === 'FINAL' ? 'Evaluación final registrada.' : 'Borrador guardado.', 'success');
+        if (status === 'FINAL') {
+          const next = state.data.items.find(item => evaluationStatus(item) !== 'final');
+          if (next) selectItem(next.assignment_id);
+        }
+      } catch (error) {
+        setStatus('save-status', error.message, 'error');
+      } finally {
+        if (evaluationStatus(currentItem()) !== 'final') button.disabled = false;
+      }
+    }
+
+    document.getElementById('login-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      const reviewerId = document.getElementById('reviewer-id').value;
+      const accessCode = document.getElementById('access-code').value.trim();
+      setStatus('login-status', 'Verificando acceso…');
+      try {
+        state.reviewerId = reviewerId;
+        state.accessCode = accessCode;
+        const accepted = document.getElementById('accept-participation').checked;
+        state.data = await callServer('startParticipation', reviewerId, accessCode, accepted);
+        if (state.data.total !== 62) throw new Error(`Lote incompleto: ${state.data.total}/62`);
+        chooseInitialItem();
+        renderSummary();
+        renderQueue();
+        renderCase();
+        localStorage.setItem('r5x62_reviewer_id', reviewerId);
+        document.getElementById('login-panel').classList.add('hidden');
+        document.getElementById('review-app').classList.remove('hidden');
+      } catch (error) {
+        state.accessCode = '';
+        setStatus('login-status', error.message, 'error');
+      }
+    });
+
+    document.getElementById('save-draft').addEventListener('click', () => save('BORRADOR'));
+    document.getElementById('submit-final').addEventListener('click', () => save('FINAL'));
+    document.getElementById('next-pending').addEventListener('click', () => {
+      const next = state.data.items.find(item => evaluationStatus(item) !== 'final');
+      if (next) selectItem(next.assignment_id);
+    });
+    document.getElementById('logout').addEventListener('click', () => {
+      state.accessCode = '';
+      state.data = null;
+      document.getElementById('access-code').value = '';
+      document.getElementById('review-app').classList.add('hidden');
+      document.getElementById('login-panel').classList.remove('hidden');
+    });
+
+    const queryReviewer = new URLSearchParams(location.search).get('reviewer');
+    const remembered = localStorage.getItem('r5x62_reviewer_id');
+    const validReviewers = ['REVISOR-1', 'REVISOR-2', 'REVISOR-3', 'REVISOR-4', 'REVISOR-5'];
+    if (validReviewers.includes(queryReviewer)) document.getElementById('reviewer-id').value = queryReviewer;
+    else if (validReviewers.includes(remembered)) document.getElementById('reviewer-id').value = remembered;
+  </script>
+</body>
+</html>

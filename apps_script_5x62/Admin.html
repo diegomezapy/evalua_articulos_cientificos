@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <?!= include('styles'); ?>
+</head>
+<body>
+  <main class="shell">
+    <header class="card hero">
+      <div class="hero-row">
+        <div>
+          <p class="eyebrow">Administración privada</p>
+          <h1>Control de revisión de 270 artículos</h1>
+          <p>Seguimiento de avance, acuerdo exploratorio en los casos comunes y exportación consolidada. Este panel no muestra ni modifica las decisiones IA.</p>
+        </div>
+        <a class="btn btn-secondary" href="<?= appUrl ?>">Volver a revisión</a>
+      </div>
+    </header>
+
+    <section id="admin-login" class="card login">
+      <h2>Acceso del administrador</h2>
+      <form id="admin-login-form" class="stack">
+        <div class="field">
+          <label for="admin-code">Código de administrador</label>
+          <input id="admin-code" type="password" autocomplete="current-password" required>
+        </div>
+        <button class="btn" type="submit">Abrir panel</button>
+        <div id="admin-login-status" class="status" role="status" aria-live="polite"></div>
+      </form>
+    </section>
+
+    <section id="admin-app" class="hidden">
+      <div class="card hero" style="margin-top:16px">
+        <div class="toolbar">
+          <strong>Estado del operativo</strong>
+          <div class="actions">
+            <button id="refresh" class="btn btn-secondary" type="button">Actualizar</button>
+            <button id="export" class="btn" type="button">Exportar CSV</button>
+            <button id="logout" class="btn btn-secondary" type="button">Cerrar sesión</button>
+          </div>
+        </div>
+        <div class="summary-grid">
+          <div class="metric"><span class="metric-label">Asignaciones</span><span id="total-assignments" class="metric-value">310</span></div>
+          <div class="metric"><span class="metric-label">Artículos únicos</span><span id="unique-cases" class="metric-value">270</span></div>
+          <div class="metric"><span class="metric-label">Casos comunes</span><span id="common-cases" class="metric-value">10</span></div>
+          <div class="metric"><span class="metric-label">Comunes completos ×5</span><span id="common-complete" class="metric-value">0</span></div>
+        </div>
+      </div>
+
+      <section class="card admin-section">
+        <div class="section-head"><h2>Avance por estadístico</h2><span class="muted small">Cada lote debe cerrar en 62/62</span></div>
+        <table>
+          <thead><tr><th>Revisor</th><th>Participación</th><th class="num">Asignados</th><th class="num">Finalizados</th><th class="num">Borradores</th><th class="num">Pendientes</th><th class="num">Avance</th></tr></thead>
+          <tbody id="progress-body"></tbody>
+        </table>
+      </section>
+
+      <section class="card admin-section">
+        <div class="section-head"><h2>Acuerdo en los diez casos comunes</h2><span class="muted small">Los diez artículos son evaluados por los cinco revisores</span></div>
+        <table>
+          <thead><tr><th>Variable</th><th class="num">Casos completos ×5</th><th class="num">Acuerdo por pares</th><th class="num">Kappa de Fleiss</th></tr></thead>
+          <tbody id="agreement-body"></tbody>
+        </table>
+      </section>
+
+      <section class="card admin-section">
+        <h2>Enlaces de invitación</h2>
+        <p class="muted">Envíe a cada persona únicamente su enlace y su código de acceso. No adjunte el manifiesto administrativo ni resultados de IA.</p>
+        <div id="invite-links" class="stack"></div>
+      </section>
+
+      <div id="admin-status" class="status" role="status" aria-live="polite" style="margin-top:12px"></div>
+    </section>
+  </main>
+
+  <script>
+    const APP_URL = <?!= JSON.stringify(appUrl) ?>;
+    const state = { adminCode: '', dashboard: null };
+
+    function callServer(name, ...args) {
+      return new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(error => reject(new Error(error && error.message ? error.message : String(error))))
+          [name](...args);
+      });
+    }
+
+    function setStatus(id, message, tone = '') {
+      const node = document.getElementById(id);
+      node.textContent = message || '';
+      node.className = `status ${tone}`.trim();
+    }
+
+    function formatRatio(value) {
+      return value == null || Number.isNaN(Number(value)) ? '—' : `${(Number(value) * 100).toFixed(1)} %`;
+    }
+
+    function formatKappa(value) {
+      return value == null || Number.isNaN(Number(value)) ? '—' : Number(value).toFixed(3);
+    }
+
+    function cell(text, className = '') {
+      const node = document.createElement('td');
+      node.className = className;
+      node.textContent = text;
+      return node;
+    }
+
+    function renderDashboard() {
+      const data = state.dashboard;
+      document.getElementById('total-assignments').textContent = data.total_assignments;
+      document.getElementById('unique-cases').textContent = data.unique_cases;
+      document.getElementById('common-cases').textContent = data.common_cases;
+      document.getElementById('common-complete').textContent = data.common_complete_by_all;
+
+      const progressBody = document.getElementById('progress-body');
+      progressBody.replaceChildren();
+      data.progress.forEach(item => {
+        const row = document.createElement('tr');
+        row.append(
+          cell(item.reviewer_label), cell(item.participacion_aceptada ? 'Aceptada' : 'Sin respuesta'),
+          cell(item.asignados, 'num'), cell(item.finalizados, 'num'),
+          cell(item.borradores, 'num'), cell(item.pendientes, 'num'),
+          cell(`${(item.finalizados / item.asignados * 100).toFixed(1)} %`, 'num')
+        );
+        progressBody.appendChild(row);
+      });
+
+      const agreementBody = document.getElementById('agreement-body');
+      agreementBody.replaceChildren();
+      data.agreement.forEach(item => {
+        const row = document.createElement('tr');
+        row.append(
+          cell(item.label), cell(item.complete_cases, 'num'),
+          cell(formatRatio(item.pairwise_agreement), 'num'),
+          cell(formatKappa(item.fleiss_kappa), 'num')
+        );
+        agreementBody.appendChild(row);
+      });
+
+      const inviteTarget = document.getElementById('invite-links');
+      inviteTarget.replaceChildren();
+      data.progress.forEach(item => {
+        const url = `${data.app_url || APP_URL}?reviewer=${encodeURIComponent(item.reviewer_id)}`;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'field';
+        const label = document.createElement('label');
+        label.textContent = item.reviewer_label;
+        const input = document.createElement('input');
+        input.value = url;
+        input.readOnly = true;
+        const button = document.createElement('button');
+        button.className = 'btn btn-secondary';
+        button.type = 'button';
+        button.textContent = 'Copiar enlace';
+        button.addEventListener('click', async () => {
+          await navigator.clipboard.writeText(url);
+          setStatus('admin-status', `Enlace de ${item.reviewer_id} copiado.`, 'success');
+        });
+        const line = document.createElement('div');
+        line.className = 'actions';
+        line.style.justifyContent = 'flex-start';
+        line.append(input, button);
+        wrapper.append(label, line);
+        inviteTarget.appendChild(wrapper);
+      });
+    }
+
+    async function refresh() {
+      setStatus('admin-status', 'Actualizando…');
+      state.dashboard = await callServer('getAdminDashboard', state.adminCode);
+      renderDashboard();
+      setStatus('admin-status', 'Panel actualizado.', 'success');
+    }
+
+    function csvCell(value) {
+      const text = value == null ? '' : String(value);
+      return `"${text.replaceAll('"', '""')}"`;
+    }
+
+    async function exportCsv() {
+      setStatus('admin-status', 'Preparando exportación…');
+      const data = await callServer('getAdminExport', state.adminCode);
+      const lines = [data.fields.map(csvCell).join(',')];
+      data.rows.forEach(row => lines.push(data.fields.map(field => csvCell(row[field])).join(',')));
+      const blob = new Blob(['\uFEFF', lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `evaluaciones_5x62_${new Date().toISOString().slice(0, 10)}.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      setStatus('admin-status', `CSV exportado con ${data.rows.length} asignaciones.`, 'success');
+    }
+
+    document.getElementById('admin-login-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      state.adminCode = document.getElementById('admin-code').value.trim();
+      setStatus('admin-login-status', 'Verificando acceso…');
+      try {
+        await refresh();
+        document.getElementById('admin-login').classList.add('hidden');
+        document.getElementById('admin-app').classList.remove('hidden');
+      } catch (error) {
+        state.adminCode = '';
+        setStatus('admin-login-status', error.message, 'error');
+      }
+    });
+    document.getElementById('refresh').addEventListener('click', () => refresh().catch(error => setStatus('admin-status', error.message, 'error')));
+    document.getElementById('export').addEventListener('click', () => exportCsv().catch(error => setStatus('admin-status', error.message, 'error')));
+    document.getElementById('logout').addEventListener('click', () => {
+      state.adminCode = '';
+      document.getElementById('admin-code').value = '';
+      document.getElementById('admin-app').classList.add('hidden');
+      document.getElementById('admin-login').classList.remove('hidden');
+    });
+  </script>
+</body>
+</html>
